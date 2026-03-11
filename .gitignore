@@ -1,0 +1,9 @@
+node_modules/
+.env
+credentials.json
+serviceAccountKey.json
+token.json
+tokens.json
+*.pem
+*.key
+*.crt

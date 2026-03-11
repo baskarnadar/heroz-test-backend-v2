@@ -1,0 +1,12 @@
+const activity = require("./trip.controller");
+const express = require("express");
+const router = express.Router();
+const { protectAPI  } = require("../../../middleware/auth");
+router.post("/schCreateTripData", protectAPI,activity.schCreateTripData);
+router.post("/tripPaidList",protectAPI, activity.tripPaidList);
+router.post("/schtripStuOnOff", protectAPI,activity.schtripStuOnOff);
+router.post("/schQR", protectAPI,activity.schQR);
+router.post("/schupdateSendToVendor", protectAPI,activity.schupdateSendToVendor);
+router.post("/getVdrTripLockDateList", protectAPI,activity.getVdrTripLockDateList);
+router.post("/updateSchProposal", protectAPI,activity.updateSchProposal);
+module.exports = router; 
