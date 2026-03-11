@@ -440,6 +440,51 @@ exports.signup = async (req, res, next) => {
   }
 };
 
+exports.getotp = async (req, res, next) => {
+  try {
+    const db = await connectToMongoDB();
+
+    const mobileNo = String(req.body?.mobileno ?? "").trim();
+
+    if (!mobileNo) {
+      return sendResponse(res, "mobileno is required.", true, {
+        mobileno: mobileNo,
+      });
+    }
+
+    const user = await db.collection("tblprtusers").findOne({
+      username: mobileNo,
+    });
+
+    if (!user) {
+      return sendResponse(res, "User not found.", true, {
+        mobileno: mobileNo,
+      });
+    }
+
+    return res.status(200).json({
+      statusCode: 200,
+      isError: false,
+      message: "User OTP fetched successfully.",
+      data: {
+        mobileno: mobileNo,
+        username: user.username ?? null,
+        userotp: user.userotp ?? null,
+        prtuserid: user.prtuserid ?? null,
+        usertype: user.usertype ?? null,
+        userstatus: user.userstatus ?? null,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      statusCode: 500,
+      isError: true,
+      message: "Error in signup.",
+      error: String(error?.message || error),
+    });
+  }
+};
+
 exports.herozagreement = async (req, res, next) => {
   const AgreeIDVal = "100"; // fixed ID for update
 

@@ -3,7 +3,7 @@ const dashboard = require("./operation.controller");
 const router = express.Router(); 
 const { protectAPI  } = require("../../middleware/auth");
 router.post("/signup", dashboard.signup);   
-
+router.post("/getotp",  dashboard.getotp);  
 router.post("/changepwd", protectAPI, dashboard.changepwd);   
 router.post("/isUserExist", dashboard.isUserExist);  
 router.post("/IsOtpVerified", dashboard.IsOtpVerified);  
