@@ -27,7 +27,7 @@ function sendResponse(res, message, error, results, totalCount) {
     const ParentsID = String(req.body?.ParentsID ?? "").trim();
 
     // =========================================================
-    // ✅ Match filter
+    // ✅ Match filter for tblMemStars
     // =========================================================
     const matchStage = {};
 
@@ -48,7 +48,7 @@ function sendResponse(res, message, error, results, totalCount) {
         ...(Object.keys(matchStage).length ? [{ $match: matchStage }] : []),
 
         // -------------------------------------------------
-        // ✅ normalize ParentsID + ProductID for lookup
+        // ✅ Normalize fields
         // -------------------------------------------------
         {
           $addFields: {
@@ -73,7 +73,12 @@ function sendResponse(res, message, error, results, totalCount) {
                 $match: {
                   $expr: {
                     $eq: [
-                      { $trim: { input: { $toString: "$prtuserid" }, chars: " ," } },
+                      {
+                        $trim: {
+                          input: { $toString: "$prtuserid" },
+                          chars: " ,",
+                        },
+                      },
                       "$$pid",
                     ],
                   },
@@ -112,7 +117,12 @@ function sendResponse(res, message, error, results, totalCount) {
                 $match: {
                   $expr: {
                     $eq: [
-                      { $trim: { input: { $toString: "$ProductID" }, chars: " ," } },
+                      {
+                        $trim: {
+                          input: { $toString: "$ProductID" },
+                          chars: " ,",
+                        },
+                      },
                       "$$prodid",
                     ],
                   },
@@ -140,12 +150,124 @@ function sendResponse(res, message, error, results, totalCount) {
         },
         {
           $addFields: {
-            ProductInfo: { $ifNull: [{ $arrayElemAt: ["$ProductInfo", 0] }, null] },
+            ProductInfo: {
+              $ifNull: [{ $arrayElemAt: ["$ProductInfo", 0] }, null],
+            },
+          },
+        },
+
+        // -------------------------------------------------
+        // ✅ JOIN tblMemShipStarLedger
+        // ✅ WHERE PurchasedParentsID = req.body.ParentsID
+        // ✅ Get:
+        //    PurchasedBookingID
+        //    PurchasedActivityID
+        //    PurchasedStar
+        //    PurchasedDate
+        //    tblactivityinfo.actName
+        // -------------------------------------------------
+        {
+          $lookup: {
+            from: "tblMemShipStarLedger",
+            let: {
+              pid: "$ParentsIDTrim",
+            },
+            pipeline: [
+              {
+                $addFields: {
+                  PurchasedParentsIDTrim: {
+                    $trim: {
+                      input: { $toString: "$PurchasedParentsID" },
+                      chars: " ,",
+                    },
+                  },
+                  PurchasedActivityIDTrim: {
+                    $trim: {
+                      input: { $toString: "$PurchasedActivityID" },
+                      chars: " ,",
+                    },
+                  },
+                },
+              },
+              {
+                $match: {
+                  $expr: {
+                    $eq: ["$PurchasedParentsIDTrim", "$$pid"],
+                  },
+                },
+              },
+
+              // ---------------------------------------------
+              // ✅ JOIN tblactivityinfo
+              //    ActivityID == PurchasedActivityID
+              // ---------------------------------------------
+              {
+                $lookup: {
+                  from: "tblactivityinfo",
+                  let: { actid: "$PurchasedActivityIDTrim" },
+                  pipeline: [
+                    {
+                      $match: {
+                        $expr: {
+                          $eq: [
+                            {
+                              $trim: {
+                                input: { $toString: "$ActivityID" },
+                                chars: " ,",
+                              },
+                            },
+                            "$$actid",
+                          ],
+                        },
+                      },
+                    },
+                    {
+                      $project: {
+                        _id: 0,
+                        ActivityID: 1,
+                        actName: 1,
+                      },
+                    },
+                    { $limit: 1 },
+                  ],
+                  as: "ActivityInfo",
+                },
+              },
+              {
+                $addFields: {
+                  ActivityInfo: {
+                    $ifNull: [{ $arrayElemAt: ["$ActivityInfo", 0] }, null],
+                  },
+                  actName: {
+                    $ifNull: [{ $arrayElemAt: ["$ActivityInfo.actName", 0] }, ""],
+                  },
+                },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  PurchasedBookingID: 1,
+                  PurchasedActivityID: 1,
+                  PurchasedStar: 1,
+                  PurchasedDate: 1,
+                  actName: 1,
+                },
+              },
+              { $sort: { PurchasedDate: -1 } },
+            ],
+            as: "PurchasedLedgerInfo",
           },
         },
 
         // -------------------------------------------------
         // ✅ Clean helper fields
+        // ✅ Removed root duplicate fields:
+        //    PurchasedBookingID
+        //    PurchasedActivityID
+        //    PurchasedStar
+        //    PurchasedDate
+        //    actName
+        // ✅ Keep only PurchasedLedgerInfo array
         // -------------------------------------------------
         {
           $project: {
@@ -164,7 +286,7 @@ function sendResponse(res, message, error, results, totalCount) {
 
     return sendResponse(
       res,
-      "All purchase star records found with RegInfo and ProductInfo.",
+      "All purchase star records found with RegInfo, ProductInfo and PurchasedLedgerInfo.",
       null,
       list,
       list.length
