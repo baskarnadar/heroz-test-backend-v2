@@ -21,11 +21,7 @@ router.post("/closePayDueDate", protectAPI, tripdata.closePayDueDate);
 const upload = require("../../middleware/uploadKidsImage"); // your multer config
 
 // ✅ MUST be here, before controller
-router.post(
-  "/PosAddKidsOnly",
-  protectAPI, // ✅ keep/remove based on your requirement
-  upload.single("KidsImage"), // ✅ must match Flutter field name
-  tripdata.PosAddKidsOnly // ✅ FIX: use tripdata (not tripController)
-);
-
+router.post(  "/PosGetKidsInfoOnly",      tripdata.PosGetKidsInfoOnly  );
+router.post(  "/PosAddKidsOnly",  upload.single("KidsImage"),    tripdata.PosAddKidsOnly  );
+router.post(  "/PosUpdateKidsOnly",  upload.single("KidsImage"),    tripdata.PosUpdateKidsOnly  );
 module.exports = router;

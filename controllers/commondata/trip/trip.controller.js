@@ -2474,3 +2474,243 @@ exports.PosAddKidsOnly = async (req, res) => {
     });
   }
 };
+
+ exports.PosGetKidsInfoOnly = async (req, res) => {
+  try {
+    console.log("==============================================");
+    console.log("[PosGetKidsInfoOnly] HIT:", new Date().toISOString());
+    console.log("==============================================");
+
+    const db = await connectToMongoDB();
+
+    // =========================================================
+    // ✅ Validate KidsID from req.body
+    // =========================================================
+    const KidsID = String(req.body?.KidsID ?? "").trim();
+
+    console.log("[PosGetKidsInfoOnly] KidsID:", KidsID);
+
+    if (!KidsID) {
+      return sendResponse(res, "KidsID is required.", true);
+    }
+
+    // =========================================================
+    // ✅ SELECT * FROM tblMemKidsInfo WHERE KidsID = KidsID
+    // =========================================================
+    const kid = await db.collection("tblMemKidsInfo").findOne({ KidsID });
+
+    console.log("[PosGetKidsInfoOnly] Result:", kid);
+
+    if (!kid) {
+      return sendResponse(res, "No record found for the given KidsID.", true, {
+        KidsID,
+        data: null,
+      });
+    }
+
+    // =========================================================
+    // ✅ Build KidsImageNameUrl = env.PosUserImageUrl + "/" + KidsImageName
+    // ✅ Ensures exactly one "/" between base URL and filename
+    // =========================================================
+    const baseUrl          = (process.env.PosUserImageUrl ?? "").trim().replace(/\/+$/, "");
+    const imageName        = (kid.KidsImageName ?? "").toString().trim().replace(/^\/+/, "");
+    const KidsImageNameUrl = imageName ? `${baseUrl}/${imageName}` : null;
+
+    console.log("[PosGetKidsInfoOnly] KidsImageNameUrl:", KidsImageNameUrl);
+
+    // =========================================================
+    // ✅ Return all fields
+    // =========================================================
+    return sendResponse(res, "Kids info retrieved successfully.", null, {
+      KidsID,
+      data: {
+        _id:                kid._id,
+        KidsID:             kid.KidsID,
+        KidsName:           kid.KidsName           ?? null,
+        KidsClassName:      kid.KidsClassName      ?? null,
+        KidsSchoolName:     kid.KidsSchoolName     ?? null,
+        KidsGender:         kid.KidsGender         ?? null,
+        KidsSchoolNo:       kid.KidsSchoolNo       ?? null,
+        KidsDateOfBirth:    kid.KidsDateOfBirth    ?? null,
+        KidsAdditionalNote: kid.KidsAdditionalNote ?? null,
+        KidsImageName:      kid.KidsImageName      ?? null,
+        KidsImageUrl:       kid.KidsImageUrl       ?? null,
+        KidsImageNameUrl,
+        ParentsID:          kid.ParentsID          ?? null,
+        CreatedDate:        kid.CreatedDate        ?? null,
+        ModifyDate:         kid.ModifyDate         ?? null,
+        CreatedBy:          kid.CreatedBy          ?? null,
+        ModifyBy:           kid.ModifyBy           ?? null,
+      },
+    });
+
+  } catch (error) {
+    console.error("[PosGetKidsInfoOnly] ERROR:", error);
+    return sendResponse(res, "Error in PosGetKidsInfoOnly.", true, {
+      error: String(error?.message || error),
+    });
+  }
+};
+
+ exports.PosUpdateKidsOnly = async (req, res) => {
+  try {
+    console.log("==============================================");
+    console.log("[PosUpdateKidsOnly] HIT:", new Date().toISOString());
+    console.log("==============================================");
+
+    const db = await connectToMongoDB();
+
+    // =========================================================
+    // ✅ Validate KidsID from req.body (Primary Key)
+    // =========================================================
+    const KidsID = String(req.body?.kids ?? req.body?.KidsID ?? "").trim();
+    if (!KidsID) return sendResponse(res, "kids (KidsID) is required.", true);
+
+    const ParentsID = String(req.body?.ParentsID ?? "").trim();
+    if (!ParentsID) return sendResponse(res, "ParentsID is required.", true);
+
+    // =========================================================
+    // ✅ Check kid exists in DB
+    // =========================================================
+    const existingKid = await db.collection("tblMemKidsInfo").findOne({ KidsID });
+    if (!existingKid) {
+      return sendResponse(res, "Kid not found with given KidsID.", true);
+    }
+
+    // =========================================================
+    // ✅ Upload image if file provided
+    // =========================================================
+    let uploadedImage = null;
+    if (req.file) {
+      uploadedImage = await uploadKidsImageToS3(req.file);
+    }
+
+    // =========================================================
+    // ✅ Normalize fields from req.body
+    // =========================================================
+    const KidsName = normalizeText(
+      req.body?.KidsName ?? req.body?.kidsName ?? req.body?.name ?? existingKid.KidsName,
+      150
+    );
+    const KidsClassName = normalizeText(
+      req.body?.KidsClassName ?? req.body?.ClassName ?? req.body?.className ?? existingKid.KidsClassName,
+      100
+    );
+    const KidsSchoolName = normalizeText(
+      req.body?.KidsSchoolName ?? req.body?.SchoolName ?? req.body?.schoolName ?? existingKid.KidsSchoolName,
+      150
+    );
+    const KidsGender = normalizeGender(
+      req.body?.KidsGender ?? req.body?.gender ?? existingKid.KidsGender
+    );
+    const KidsSchoolNo = normalizeText(
+      req.body?.KidsSchoolNo ?? req.body?.SchoolNo ?? existingKid.KidsSchoolNo ?? "",
+      50
+    );
+    const KidsDateOfBirth = normalizeDOB(
+      req.body?.KidsDateOfBirth ?? req.body?.DateOfBirth ?? req.body?.dob ?? existingKid.KidsDateOfBirth
+    );
+    const KidsAdditionalNote = normalizeText(
+      req.body?.KidsAdditionalNote ?? req.body?.AdditionalNote ?? req.body?.notes ?? existingKid.KidsAdditionalNote ?? "",
+      200
+    );
+
+    // =========================================================
+    // ✅ Resolve Image:
+    //    Priority 1 — new file uploaded via req.file (S3 folder: users/)
+    //    Priority 2 — image key sent in req.body (S3 folder: users/)
+    //    Priority 3 — keep existing image from DB
+    // =========================================================
+    const S3_FOLDER = "users";
+    const S3_BASE_URL = process.env.S3_BASE_URL; // e.g. https://your-bucket.s3.amazonaws.com
+
+    let KidsImageName = existingKid.KidsImageName ?? "logo.png";
+    let KidsImageUrl = existingKid.KidsImageUrl ?? null;
+
+    if (uploadedImage?.key) {
+      // ✅ New file uploaded via req.file — stored in S3 under users/
+      // uploadKidsImageToS3 already puts it in users/ folder
+      KidsImageName = uploadedImage.key;               // e.g. "users/abc123.jpg"
+      KidsImageUrl = uploadedImage.publicUrl ?? null;  // full S3 URL from upload result
+    } else {
+      // ✅ Check if client sent image key/name in body
+      const clientImageKey = normalizeImageName(
+        req.body?.KidsImageKey ??
+        req.body?.KidsImageName ??
+        req.body?.imageKey ??
+        req.body?.imageName ??
+        null
+      );
+
+      if (clientImageKey) {
+        // ✅ Strip any leading folder prefix sent by client, then re-apply users/
+        const cleanedKey = String(clientImageKey).trim().replace(/^users\//, "");
+        KidsImageName = `${S3_FOLDER}/${cleanedKey}`;  // always → users/filename.jpg
+        KidsImageUrl = S3_BASE_URL
+          ? `${S3_BASE_URL}/${KidsImageName}`           // full URL if env is set
+          : null;
+      }
+      // else — no image sent, keep existing KidsImageName & KidsImageUrl from DB
+    }
+
+    // =========================================================
+    // ✅ Required field validation
+    // =========================================================
+    if (!KidsName || !KidsClassName || !KidsSchoolName || !KidsGender) {
+      return sendResponse(
+        res,
+        "KidsName, KidsClassName, KidsSchoolName, KidsGender are required.",
+        true
+      );
+    }
+
+    // =========================================================
+    // ✅ Build update payload — matches exact DB schema
+    // =========================================================
+    const updateFields = {
+      KidsName,
+      KidsClassName,
+      KidsSchoolName,
+      KidsGender,
+      KidsSchoolNo:        KidsSchoolNo || null,
+      KidsDateOfBirth,
+      KidsAdditionalNote:  KidsAdditionalNote || null,
+      KidsImageName,       // stored as "users/filename.jpg"
+      KidsImageUrl,        // full S3 URL or null
+      ParentsID,
+      ModifyDate: new Date(),
+      ModifyBy:   ParentsID,
+    };
+
+    // =========================================================
+    // ✅ Perform update
+    // =========================================================
+    const updateResult = await db.collection("tblMemKidsInfo").updateOne(
+      { KidsID },
+      { $set: updateFields }
+    );
+
+    // =========================================================
+    // ✅ Success response
+    // =========================================================
+    return sendResponse(res, "Kid updated successfully.", null, {
+      KidsID,
+      matchedCount:   updateResult.matchedCount,
+      modifiedCount:  updateResult.modifiedCount,
+      updatedFields:  updateFields,
+      uploadedImage: uploadedImage
+        ? {
+            key:         uploadedImage.key,        // "users/filename.jpg"
+            publicUrl:   uploadedImage.publicUrl,
+            ext:         uploadedImage.ext,
+            contentType: uploadedImage.contentType,
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error("[PosUpdateKidsOnly] ERROR:", error);
+    return sendResponse(res, "Error in PosUpdateKidsOnly.", true, {
+      error: String(error?.message || error),
+    });
+  }
+};
