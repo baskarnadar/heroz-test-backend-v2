@@ -18,13 +18,7 @@ router.use("/admindata/activityinfo/trip", AdmActivityTripInfoRoute);
 router.use("/admindata/payment", AdmActivityPaymentInfoRoute);
 router.use("/admindata/pushmsg", PushNotificationRoute);
 
-// ✅ MOUNT PRODUCTS API
-// this means your endpoints become:
-// POST /api/product/productslist
-// POST /api/product/productsadd
-// POST /api/product/productsmodify
-// POST /api/product/productsdelete
-// POST /api/product/productsview
+ 
 router.use("/product", ProductsRoute);
 
 module.exports = router;

@@ -64,7 +64,7 @@ function mapProduct(p) {
  *   includeInactive: false
  * }
  */
-exports.productslist = async (req, res, next) => {
+exports.productslistonly = async (req, res, next) => {
   try {
     const page = Math.max(parseInt(req.body?.page || 1, 10), 1);
     const limit = Math.max(parseInt(req.body?.limit || 10, 10), 1);
@@ -82,7 +82,7 @@ exports.productslist = async (req, res, next) => {
     if (!includeInactive) {
       filter.IsDataStatus = true;
     }
-
+ 
     // optional search by name
     if (search) {
       filter.ProductName = { $regex: search, $options: "i" };
@@ -101,22 +101,53 @@ exports.productslist = async (req, res, next) => {
 
     sendResponse(res, "products found.", null, updated, totalCount);
   } catch (error) {
-    console.error("Error in productslist:", error);
+    console.error("Error in productlist:", error);
+    next(error);
+  }
+};
+exports.productslist = async (req, res, next) => {
+  try {
+    const page = Math.max(parseInt(req.body?.page || 1, 10), 1);
+    const limit = Math.max(parseInt(req.body?.limit || 10, 10), 1);
+    const skip = (page - 1) * limit;
+
+    const search = toStr(req.body?.search);
+    const includeInactive = Boolean(req.body?.includeInactive);
+
+    const db = await connectToMongoDB();
+    const collection = db.collection("tblproducts");
+
+    const filter = {};
+
+    // default: only active
+    if (!includeInactive) {
+      filter.IsDataStatus = true;
+    }
+ 
+    // optional search by name
+    if (search) {
+      filter.ProductName = { $regex: search, $options: "i" };
+    }
+
+    const items = await collection
+      .find(filter)
+      .sort({ CreatedDate: -1 })
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    const totalCount = await collection.countDocuments(filter);
+
+    const updated = (items || []).map(mapProduct);
+
+    sendResponse(res, "products found.", null, updated, totalCount);
+  } catch (error) {
+    console.error("Error in productlist:", error);
     next(error);
   }
 };
 
-/**
- * ✅ ADD PRODUCT
- * Body:
- * {
- *   ProductName: "Gold Plan",
- *   ProductAmount: 150,
- *   ProductTotalStar: 10,
- *   ProductImage: "gold.png",
- *   CreatedBy: "adminUserId"
- * }
- */
+ 
 exports.productsadd = async (req, res, next) => {
   try {
     const ProductName = toStr(req.body?.ProductName);

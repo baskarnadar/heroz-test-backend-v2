@@ -5,6 +5,7 @@ const router = express.Router();
 const products = require("./products.controller");
 const { protectAPI } = require("../../middleware/auth");
 
+router.post("/productslistonly", products.productslistonly);
 // ✅ LIST PRODUCTS
 router.post("/productslist", protectAPI, products.productslist);
 
