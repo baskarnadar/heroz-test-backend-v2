@@ -212,12 +212,11 @@ console.log(usertype);
         ProfileName = vendor.RegUserFullName || "";
       }
 
-      if ( member?.RegUserImageName) {
-        ProfileImageName = `${process.env.PosUserImageUrl}/${member.RegUserImageName}`;
+      if ( vendor?.RegUserImageName) {
+        ProfileImageName = `${process.env.PosUserImageUrl}/${vendor.RegUserImageName}`;
       }
 
-    }
-     
+    } 
 
     const lokSetting = await db.collection("tblloksetting").findOne(
       { IsActive: { $in: ["YES", "Yes", "yes"] } },
