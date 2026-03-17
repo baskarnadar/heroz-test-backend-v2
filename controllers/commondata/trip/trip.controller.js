@@ -2578,14 +2578,6 @@ exports.PosAddKidsOnly = async (req, res) => {
     }
 
     // =========================================================
-    // ✅ Upload image if file provided
-    // =========================================================
-    let uploadedImage = null;
-    if (req.file) {
-      uploadedImage = await uploadKidsImageToS3(req.file);
-    }
-
-    // =========================================================
     // ✅ Normalize fields from req.body
     // =========================================================
     const KidsName = normalizeText(
@@ -2616,10 +2608,9 @@ exports.PosAddKidsOnly = async (req, res) => {
     );
 
     // =========================================================
-    // ✅ Resolve Image:
-    //    Priority 1 — new file uploaded via req.file (S3 folder: users/)
-    //    Priority 2 — image key sent in req.body (S3 folder: users/)
-    //    Priority 3 — keep existing image from DB
+    // ✅ Image handling from req.body ONLY
+    // ✅ uploadKidsImageToS3 logic removed
+    // ✅ req.file logic removed
     // =========================================================
     const S3_FOLDER = "users";
     const S3_BASE_URL = process.env.S3_BASE_URL; // e.g. https://your-bucket.s3.amazonaws.com
@@ -2627,31 +2618,27 @@ exports.PosAddKidsOnly = async (req, res) => {
     let KidsImageName = existingKid.KidsImageName ?? "logo.png";
     let KidsImageUrl = existingKid.KidsImageUrl ?? null;
 
-    if (uploadedImage?.key) {
-      // ✅ New file uploaded via req.file — stored in S3 under users/
-      // uploadKidsImageToS3 already puts it in users/ folder
-      KidsImageName = uploadedImage.key;               // e.g. "users/abc123.jpg"
-      KidsImageUrl = uploadedImage.publicUrl ?? null;  // full S3 URL from upload result
-    } else {
-      // ✅ Check if client sent image key/name in body
-      const clientImageKey = normalizeImageName(
-        req.body?.KidsImageKey ??
-        req.body?.KidsImageName ??
-        req.body?.imageKey ??
-        req.body?.imageName ??
-        null
-      );
+    const clientImageKey = normalizeImageName(
+      req.body?.KidsImageKey ??
+      req.body?.KidsImageName ??
+      req.body?.imageKey ??
+      req.body?.imageName ??
+      null
+    );
 
-      if (clientImageKey) {
-        // ✅ Strip any leading folder prefix sent by client, then re-apply users/
-        const cleanedKey = String(clientImageKey).trim().replace(/^users\//, "");
-        KidsImageName = `${S3_FOLDER}/${cleanedKey}`;  // always → users/filename.jpg
-        KidsImageUrl = S3_BASE_URL
-          ? `${S3_BASE_URL}/${KidsImageName}`           // full URL if env is set
-          : null;
-      }
-      // else — no image sent, keep existing KidsImageName & KidsImageUrl from DB
+    if (clientImageKey) {
+      // ✅ Strip any leading folder prefix sent by client, then re-apply users/
+      const cleanedKey = String(clientImageKey)
+        .trim()
+        .replace(/^users\//, "")
+        .replace(/^user\//, "");
+
+      KidsImageName = `${S3_FOLDER}/${cleanedKey}`; // always → users/filename.jpg
+      KidsImageUrl = S3_BASE_URL
+        ? `${S3_BASE_URL}/${KidsImageName}`
+        : null;
     }
+    // else — no image sent, keep existing KidsImageName & KidsImageUrl from DB
 
     // =========================================================
     // ✅ Required field validation
@@ -2672,14 +2659,14 @@ exports.PosAddKidsOnly = async (req, res) => {
       KidsClassName,
       KidsSchoolName,
       KidsGender,
-      KidsSchoolNo:        KidsSchoolNo || null,
+      KidsSchoolNo: KidsSchoolNo || null,
       KidsDateOfBirth,
-      KidsAdditionalNote:  KidsAdditionalNote || null,
-      KidsImageName,       // stored as "users/filename.jpg"
-      KidsImageUrl,        // full S3 URL or null
+      KidsAdditionalNote: KidsAdditionalNote || null,
+      KidsImageName, // stored as "users/filename.jpg"
+      KidsImageUrl,  // full S3 URL or null
       ParentsID,
       ModifyDate: new Date(),
-      ModifyBy:   ParentsID,
+      ModifyBy: ParentsID,
     };
 
     // =========================================================
@@ -2695,17 +2682,10 @@ exports.PosAddKidsOnly = async (req, res) => {
     // =========================================================
     return sendResponse(res, "Kid updated successfully.", null, {
       KidsID,
-      matchedCount:   updateResult.matchedCount,
-      modifiedCount:  updateResult.modifiedCount,
-      updatedFields:  updateFields,
-      uploadedImage: uploadedImage
-        ? {
-            key:         uploadedImage.key,        // "users/filename.jpg"
-            publicUrl:   uploadedImage.publicUrl,
-            ext:         uploadedImage.ext,
-            contentType: uploadedImage.contentType,
-          }
-        : null,
+      matchedCount: updateResult.matchedCount,
+      modifiedCount: updateResult.modifiedCount,
+      updatedFields: updateFields,
+      uploadedImage: null,
     });
   } catch (error) {
     console.error("[PosUpdateKidsOnly] ERROR:", error);
