@@ -22,6 +22,8 @@ const mempaymentRoute = require('./controllers/membership/mempayment/mempayment.
 
 // ✅ Anonymous Misc
 const anonMiscRoute = require('./controllers/membership/anonymous/misc/misc.route')
+const memloginRoute = require('./controllers/membership/login/login.route')
+
 
 // Mount routes
 router.use('/membership/activity', activitylistRoute)
@@ -39,5 +41,8 @@ router.use('/membership/mempayment', mempaymentRoute)
 
 // Anonymous
 router.use('/membership/anonymous/misc', anonMiscRoute)
+
+// ✅ Mount mempayment route
+router.use('/membership/login', memloginRoute)
 
 module.exports = router

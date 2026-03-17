@@ -2076,74 +2076,6 @@ exports.getPosUserKidsInfo = async (req, res, next) => {
 };
 
 // -------------------------------------------------------------
-// ✅ PosSignup (kept)
-// -------------------------------------------------------------
-exports.PosSignup = async (req, res, next) => {
-  const prtuseridVal = generateUniqueId();
-  try {
-    const db = await connectToMongoDB();
-    const { RegUserFullName, RegUserEmailAddress, password } = req.body;
-    const username = req.body.RegUserMobileNo;
-    const usertype = req.body.usertype;
-
-    const NowISO = new Date();
-
-    if (!username || String(username).trim() === "") return sendResponse(res, "username is required.", true);
-    if (!password || String(password).trim() === "") return sendResponse(res, "password is required.", true);
-    if (!usertype || String(usertype).trim() === "") return sendResponse(res, "usertype is required.", true);
-
-    const existingUser = await db.collection("tblprtusers").findOne({ username: { $regex: `^${username}$`, $options: "i" } });
-    if (existingUser) return sendResponse(res, "duplicate mobile no or username", true);
-
-    if (RegUserEmailAddress && String(RegUserEmailAddress).trim() !== "") {
-      const existingEmail = await db.collection("tblMemRegInfo").findOne({
-        RegUserEmailAddress: { $regex: `^${RegUserEmailAddress}$`, $options: "i" },
-      });
-      if (existingEmail) return sendResponse(res, "duplicate email address", true);
-    }
-
-    let pwdkey = "";
-    const value = username + password;
-    const md5Key = crypto.createHash("md5").update(value, "utf-8").digest();
-    for (let i = 0; i < md5Key.length; i++) pwdkey += md5Key[i];
-
-    const schoolDoc = {
-      prtuserid: prtuseridVal,
-      RegUserFullName: String(RegUserFullName).trim(),
-      RegUserStatus: "ACTIVE",
-      IsDataStatus: "1",
-      RegUserEmailAddress: RegUserEmailAddress || null,
-      RegUserMobileNo: username,
-      CreatedAt: NowISO,
-      UpdatedAt: NowISO,
-      CreatedBy: prtuseridVal,
-      ModifyBy: prtuseridVal,
-      RegUserImageName: "logo.png",
-    };
-
-    const schoolInsertResult = await db.collection("tblMemRegInfo").insertOne(schoolDoc);
-
-    await createUser({
-      prtuserid: prtuseridVal,
-      username: username,
-      password: password,
-      usertype: String(usertype).trim(),
-      userstatus: "ACTIVE",
-      CreatedBy: prtuseridVal,
-      ModifyBy: prtuseridVal,
-    });
-
-    return sendResponse(res, "Registration Inserted.", null, {
-      schoolMongoId: schoolInsertResult.insertedId,
-      prtuserid: prtuseridVal,
-      username: username,
-      usertype: String(usertype).trim(),
-    });
-  } catch (error) {
-    return sendResponse(res, "Error in Registration Inserted.", true, { error: String(error?.message || error) });
-  }
-};
-
  
 
 /**
@@ -2693,3 +2625,4 @@ exports.PosAddKidsOnly = async (req, res) => {
     });
   }
 };
+ 

@@ -202,9 +202,9 @@ console.log(usertype);
       }
 
     } 
-    else if (usertype === "VENDOR-SUBADMIN") {
-      const vendor = await db.collection("tblvendorinfo").findOne({
-        VendorID: prtuserid,
+    else if (usertype === "MEMBERSHIP-PARENT") {
+      const vendor = await db.collection("tblMemRegInfo").findOne({
+        prtuserid: prtuserid,
       });
 
       if (vendor?.RegUserFullName) {
@@ -212,10 +212,8 @@ console.log(usertype);
         ProfileName = vendor.RegUserFullName || "";
       }
 
-      if (process.env.MemberImageUrl && member?.RegUserImageName) {
-        ProfileImageName = `${process.env.MemberImageUrl}/${member.RegUserImageName}`;
-      } else if (process.env.VendorImageUrl && member?.RegUserImageName) {
-        ProfileImageName = `${process.env.VendorImageUrl}/${member.RegUserImageName}`;
+      if ( member?.RegUserImageName) {
+        ProfileImageName = `${process.env.PosUserImageUrl}/${member.RegUserImageName}`;
       }
 
     }

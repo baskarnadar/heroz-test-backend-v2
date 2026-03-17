@@ -13,7 +13,7 @@ router.post(
 router.post("/gettripPaymentSummary", protectAPI, tripdata.gettripPaymentSummary);
 
 router.post("/getPosUserKidsInfo", protectAPI, tripdata.getPosUserKidsInfo);
-router.post("/PosSignup", tripdata.PosSignup);
+ 
 router.post("/PosGetParentsKidsInfo", protectAPI, tripdata.PosGetParentsKidsInfo);
 
 router.post("/closePayDueDate", protectAPI, tripdata.closePayDueDate);
