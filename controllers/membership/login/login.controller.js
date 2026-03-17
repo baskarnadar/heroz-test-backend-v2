@@ -36,7 +36,7 @@ function sendResponse(
   });
 }
 
-exports.memsignup = async (req, res, next) => {
+ exports.memsignup = async (req, res, next) => {
   const prtuseridVal = generateUniqueId();
 
   try {
@@ -44,6 +44,9 @@ exports.memsignup = async (req, res, next) => {
     const { RegUserFullName, RegUserEmailAddress, password } = req.body;
     const username = req.body.RegUserMobileNo;
     const usertype = req.body.RegUserType;
+
+    // ✅ NEW: get image from request
+    const RegUserImageNameInput = req.body.RegUserImageName;
 
     const NowISO = new Date();
 
@@ -92,6 +95,18 @@ exports.memsignup = async (req, res, next) => {
       pwdkey += md5Key[i];
     }
 
+    // =========================================================
+    // ✅ IMAGE RESOLVE (FROM BODY ONLY)
+    // remove "users/" if sent
+    // =========================================================
+    let RegUserImageName = "logo.png";
+
+    if (RegUserImageNameInput && String(RegUserImageNameInput).trim() !== "") {
+      RegUserImageName = String(RegUserImageNameInput)
+        .trim()
+        .replace(/^users\//, ""); // ✅ remove users/
+    }
+
     const schoolDoc = {
       prtuserid: prtuseridVal,
       RegUserFullName: String(RegUserFullName).trim(),
@@ -106,7 +121,9 @@ exports.memsignup = async (req, res, next) => {
       UpdatedAt: NowISO,
       CreatedBy: prtuseridVal,
       ModifyBy: prtuseridVal,
-      RegUserImageName: "logo.png",
+
+      // ✅ UPDATED HERE
+      RegUserImageName: RegUserImageName,
     };
 
     const schoolInsertResult = await db
@@ -133,6 +150,7 @@ exports.memsignup = async (req, res, next) => {
         prtuserid: prtuseridVal,
         username: String(username).trim(),
         usertype: String(usertype).trim(),
+        RegUserImageName: RegUserImageName // ✅ optional return
       }
     );
   } catch (error) {
