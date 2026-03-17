@@ -43,7 +43,7 @@ exports.memsignup = async (req, res, next) => {
     const db = await connectToMongoDB();
     const { RegUserFullName, RegUserEmailAddress, password } = req.body;
     const username = req.body.RegUserMobileNo;
-    const usertype = req.body.usertype;
+    const usertype = req.body.RegUserType;
 
     const NowISO = new Date();
 
