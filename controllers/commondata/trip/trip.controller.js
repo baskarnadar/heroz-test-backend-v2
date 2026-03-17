@@ -2578,14 +2578,6 @@ exports.PosAddKidsOnly = async (req, res) => {
     }
 
     // =========================================================
-    // ✅ Upload image if file provided
-    // =========================================================
-    let uploadedImage = null;
-    if (req.file) {
-      uploadedImage = await uploadKidsImageToS3(req.file);
-    }
-
-    // =========================================================
     // ✅ Normalize fields from req.body
     // =========================================================
     const KidsName = normalizeText(
@@ -2616,14 +2608,10 @@ exports.PosAddKidsOnly = async (req, res) => {
     );
 
     // =========================================================
-    // ✅ Resolve Image:
-    //    Priority 1 — new file uploaded via req.file
-    //    Priority 2 — image key/name sent in req.body
-    //    Priority 3 — keep existing image from DB
-    //
-    // ✅ IMPORTANT:
-    //    KidsImageName will store ONLY filename (without "users/")
-    //    KidsImageUrl will store full S3 URL with users/ path
+    // ✅ Resolve Image ONLY from req.body
+    // ✅ No file upload logic
+    // ✅ No file upload validation
+    // ✅ Store KidsImageName without "users/"
     // =========================================================
     const S3_FOLDER = "users";
     const S3_BASE_URL = process.env.S3_BASE_URL; // e.g. https://your-bucket.s3.amazonaws.com
@@ -2631,39 +2619,24 @@ exports.PosAddKidsOnly = async (req, res) => {
     let KidsImageName = existingKid.KidsImageName ?? "logo.png";
     let KidsImageUrl = existingKid.KidsImageUrl ?? null;
 
-    if (uploadedImage?.key) {
-      // ✅ New file uploaded via req.file
-      // uploadedImage.key may come like: "users/abc123.jpg"
-      const uploadedKey = String(uploadedImage.key).trim();
-      const cleanedFileName = uploadedKey.replace(/^users\//, "");
+    const clientImageKey = normalizeImageName(
+      req.body?.KidsImageKey ??
+      req.body?.KidsImageName ??
+      req.body?.imageKey ??
+      req.body?.imageName ??
+      null
+    );
 
-      KidsImageName = cleanedFileName; // store only filename
-      KidsImageUrl = uploadedImage.publicUrl
-        ?? (S3_BASE_URL ? `${S3_BASE_URL}/${S3_FOLDER}/${cleanedFileName}` : null);
+    if (clientImageKey) {
+      const cleanedFileName = String(clientImageKey).trim().replace(/^users\//, "");
+
+      KidsImageName = cleanedFileName;
+      KidsImageUrl = S3_BASE_URL
+        ? `${S3_BASE_URL}/${S3_FOLDER}/${cleanedFileName}`
+        : null;
     } else {
-      // ✅ Check if client sent image key/name in body
-      const clientImageKey = normalizeImageName(
-        req.body?.KidsImageKey ??
-        req.body?.KidsImageName ??
-        req.body?.imageKey ??
-        req.body?.imageName ??
-        null
-      );
-
-      if (clientImageKey) {
-        // ✅ Remove leading users/ if client sends it
-        const cleanedFileName = String(clientImageKey).trim().replace(/^users\//, "");
-
-        KidsImageName = cleanedFileName; // store only filename
-        KidsImageUrl = S3_BASE_URL
-          ? `${S3_BASE_URL}/${S3_FOLDER}/${cleanedFileName}`
-          : null;
-      } else {
-        // ✅ No new image sent, keep existing
-        // If old DB value still has "users/", remove it before saving again
-        if (KidsImageName) {
-          KidsImageName = String(KidsImageName).trim().replace(/^users\//, "");
-        }
+      if (KidsImageName) {
+        KidsImageName = String(KidsImageName).trim().replace(/^users\//, "");
       }
     }
 
@@ -2689,8 +2662,8 @@ exports.PosAddKidsOnly = async (req, res) => {
       KidsSchoolNo: KidsSchoolNo || null,
       KidsDateOfBirth,
       KidsAdditionalNote: KidsAdditionalNote || null,
-      KidsImageName,      // stored as filename only (without "users/")
-      KidsImageUrl,       // full S3 URL
+      KidsImageName, // stored as filename only
+      KidsImageUrl,  // full S3 URL
       ParentsID,
       ModifyDate: new Date(),
       ModifyBy: ParentsID,
@@ -2712,14 +2685,6 @@ exports.PosAddKidsOnly = async (req, res) => {
       matchedCount: updateResult.matchedCount,
       modifiedCount: updateResult.modifiedCount,
       updatedFields: updateFields,
-      uploadedImage: uploadedImage
-        ? {
-            key: String(uploadedImage.key || "").replace(/^users\//, ""), // filename only
-            publicUrl: uploadedImage.publicUrl,
-            ext: uploadedImage.ext,
-            contentType: uploadedImage.contentType,
-          }
-        : null,
     });
   } catch (error) {
     console.error("[PosUpdateKidsOnly] ERROR:", error);
