@@ -2111,8 +2111,8 @@ exports.PosGetParentsKidsInfo = async (req, res, next) => {
     }
 
     // 2) Match vendor info using VendorID = req.body.prtuserid
-    const regInfo = await db.collection("tblvendorinfo").findOne({
-      VendorID: prtuserid,
+    const regInfo = await db.collection("tblMemRegInfo").findOne({
+      prtuserid: prtuserid,
     });
 
     if (!regInfo) {
@@ -2135,9 +2135,9 @@ exports.PosGetParentsKidsInfo = async (req, res, next) => {
     };
 
     const RegUserImageName =
-      regInfo.vdrName ||
-      regInfo.vdrImageName ||
-      regInfo.UserImageName ||
+      regInfo.RegUserFullName ||
+      regInfo.RegUserImageName ||
+      regInfo.RegUserImageName ||
       "logo.png";
 
     const RegUserImageNameUrl = joinUrl(baseUrl, RegUserImageName);
