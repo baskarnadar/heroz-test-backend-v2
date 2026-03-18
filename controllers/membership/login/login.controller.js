@@ -239,3 +239,118 @@ exports.getmemdata = async (req, res, next) => {
     );
   }
 };
+ exports.updatememdata = async (req, res, next) => {
+  try {
+    console.log("==============================================");
+    console.log("[updatememdata] HIT:", new Date().toISOString());
+    console.log("==============================================");
+
+    const db = await connectToMongoDB();
+
+    // =========================================================
+    // ✅ Validate prtuserid
+    // =========================================================
+    const prtuserid = String(req.body?.prtuserid ?? "").trim();
+
+    if (!prtuserid) {
+      return sendResponse(res, 400, "prtuserid is required.", true);
+    }
+
+    // =========================================================
+    // ✅ Validate fields to update
+    // =========================================================
+    const RegUserFullName = String(req.body?.RegUserFullName ?? "").trim();
+
+    let RegUserImageName = null;
+
+    if (req.body?.RegUserImageName && String(req.body.RegUserImageName).trim() !== "") {
+      RegUserImageName = String(req.body.RegUserImageName)
+        .trim()
+        .replace(/^users\//, "");
+    }
+
+    if (!RegUserFullName && !RegUserImageName) {
+      return sendResponse(
+        res,
+        400,
+        "At least RegUserFullName or RegUserImageName is required.",
+        true
+      );
+    }
+
+    // =========================================================
+    // ✅ Check user exists
+    // =========================================================
+    const existingUser = await db.collection("tblMemRegInfo").findOne({
+      prtuserid: prtuserid,
+    });
+
+    if (!existingUser) {
+      return sendResponse(res, 404, "Member not found.", true);
+    }
+
+    // =========================================================
+    // ✅ Build update object (ONLY allowed fields)
+    // =========================================================
+    const updateFields = {
+      ModifyBy: prtuserid,
+      UpdatedDate: new Date(), // ✅ CHANGED HERE
+    };
+
+    if (RegUserFullName) {
+      updateFields.RegUserFullName = RegUserFullName;
+    }
+
+    if (RegUserImageName) {
+      updateFields.RegUserImageName = RegUserImageName;
+    }
+
+    // =========================================================
+    // ✅ Perform update
+    // =========================================================
+    const updateResult = await db.collection("tblMemRegInfo").updateOne(
+      { prtuserid: prtuserid },
+      { $set: updateFields }
+    );
+
+    // =========================================================
+    // ✅ Build image URL
+    // =========================================================
+    const PosUserImageUrl = process.env.PosUserImageUrl || "";
+    const finalImageName =
+      RegUserImageName ?? existingUser.RegUserImageName ?? "";
+
+    const responseData = {
+      prtuserid,
+      RegUserFullName:
+        updateFields.RegUserFullName ?? existingUser.RegUserFullName,
+      RegUserImageName: finalImageName,
+      RegUserImageNameUrl:
+        PosUserImageUrl && finalImageName
+          ? `${PosUserImageUrl}/${finalImageName}`
+          : null,
+      matchedCount: updateResult.matchedCount,
+      modifiedCount: updateResult.modifiedCount,
+    };
+
+    // =========================================================
+    // ✅ Success response
+    // =========================================================
+    return sendResponse(
+      res,
+      200,
+      "Member data updated successfully.",
+      false,
+      responseData
+    );
+  } catch (error) {
+    console.error("[updatememdata] ERROR:", error);
+    return sendResponse(
+      res,
+      500,
+      "Error in updatememdata.",
+      true,
+      { error: String(error?.message || error) }
+    );
+  }
+};
