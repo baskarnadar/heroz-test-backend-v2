@@ -40,7 +40,7 @@ function sendResponse(res, message, error, results = null, totalCount = null) {
 }
  
  
-exports.resetpwd = async (req, res, next) => {
+ exports.resetpwd = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
 
@@ -56,16 +56,11 @@ exports.resetpwd = async (req, res, next) => {
     // ✅ find user using mobile as username
     const user = await db.collection("tblprtusers").findOne(
       {
-        $or: [
-          { username: usernameval },
-         
-        ],
+        $or: [{ username: usernameval }],
       },
       {
         projection: {
-         
           username: 1,
-         
         },
       }
     );
@@ -75,8 +70,8 @@ exports.resetpwd = async (req, res, next) => {
     }
 
     // ✅ generate random 6 digit password
-    const password = generateNo();
-console.log(password);
+    const password = Math.floor(100000 + Math.random() * 900000).toString();
+
     let pwdkey = "";
     const value = usernameval + password;
     const md5Key = crypto.createHash("md5").update(value, "utf-8").digest();
@@ -85,9 +80,9 @@ console.log(password);
       pwdkey += md5Key[i];
     }
 
-    // ✅ update password using found user prtuserid
+    // ✅ update password using username
     const result = await db.collection("tblprtusers").updateOne(
-      { username: user.usernameval },
+      { username: usernameval },
       {
         $set: {
           password: pwdkey,
