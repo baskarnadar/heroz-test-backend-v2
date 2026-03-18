@@ -40,6 +40,72 @@ function sendResponse(res, message, error, results = null, totalCount = null) {
 }
  
  
+exports.resetpwd = async (req, res, next) => {
+  try {
+    const db = await connectToMongoDB();
+
+    const { mobileno } = req.body;
+
+    // ✅ validate mobile
+    if (!mobileno || String(mobileno).trim() === "") {
+      return sendResponse(res, "mobile is required.", true);
+    }
+
+    const usernameval = String(mobileno).trim();
+
+    // ✅ find user using mobile as username
+    const user = await db.collection("tblprtusers").findOne(
+      {
+        $or: [
+          { username: usernameval },
+         
+        ],
+      },
+      {
+        projection: {
+         
+          username: 1,
+         
+        },
+      }
+    );
+
+    if (!user) {
+      return sendResponse(res, "User not found.", true);
+    }
+
+    // ✅ generate random 6 digit password
+    const password = generateNo();
+console.log(password);
+    let pwdkey = "";
+    const value = usernameval + password;
+    const md5Key = crypto.createHash("md5").update(value, "utf-8").digest();
+
+    for (let i = 0; i < md5Key.length; i++) {
+      pwdkey += md5Key[i];
+    }
+
+    // ✅ update password using found user prtuserid
+    const result = await db.collection("tblprtusers").updateOne(
+      { username: user.usernameval },
+      {
+        $set: {
+          password: pwdkey,
+        },
+      }
+    );
+
+    return sendResponse(res, "Password updated.", null, {
+      ModifyDate: result.modifiedCount,
+      newpassword: password,
+    });
+  } catch (error) {
+    return sendResponse(res, "Error in changepwd.", true, {
+      error: String(error?.message || error),
+    });
+  }
+};
+ 
  exports.changepwd = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
@@ -79,8 +145,6 @@ function sendResponse(res, message, error, results = null, totalCount = null) {
     return sendResponse(res, "Error in changepwd.", true, { error: String(error?.message || error) });
   }
 };
-
- 
 
  
 exports.isUserExist = async (req, res, next) => {
