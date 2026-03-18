@@ -2626,7 +2626,7 @@ exports.PosAddKidsOnly = async (req, res) => {
   }
 };
  
-exports.PosDeleteKid = async (req, res) => {
+exports.PosDeleteKids = async (req, res) => {
   try {
     console.log("==============================================");
     console.log("[PosUpdateKidsOnly - DELETE] HIT:", new Date().toISOString());

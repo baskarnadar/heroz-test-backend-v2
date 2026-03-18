@@ -24,4 +24,5 @@ const upload = require("../../middleware/uploadKidsImage"); // your multer confi
 router.post(  "/PosGetKidsInfoOnly",     protectAPI, tripdata.PosGetKidsInfoOnly  );
 router.post(  "/PosAddKidsOnly",protectAPI,  upload.single("KidsImage"),    tripdata.PosAddKidsOnly  );
 router.post(  "/PosUpdateKidsOnly", protectAPI, upload.single("KidsImage"),    tripdata.PosUpdateKidsOnly  );
+router.post(  "/PosDeleteKids", protectAPI,     tripdata.PosDeleteKids  );
 module.exports = router;
