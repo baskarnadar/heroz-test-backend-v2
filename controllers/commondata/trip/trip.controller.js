@@ -2626,3 +2626,49 @@ exports.PosAddKidsOnly = async (req, res) => {
   }
 };
  
+exports.PosDeleteKid = async (req, res) => {
+  try {
+    console.log("==============================================");
+    console.log("[PosUpdateKidsOnly - DELETE] HIT:", new Date().toISOString());
+    console.log("==============================================");
+
+    const db = await connectToMongoDB();
+
+    // =========================================================
+    // ✅ Validate KidsID from req.body
+    // =========================================================
+    const KidsID =   req.body?.KidsID ;
+
+    if (!KidsID) {
+      return sendResponse(res, "KidsID is required.", true);
+    }
+
+    // =========================================================
+    // ✅ Check kid exists in DB
+    // =========================================================
+    const existingKid = await db.collection("tblMemKidsInfo").findOne({ KidsID });
+
+    if (!existingKid) {
+      return sendResponse(res, "Kid not found with given KidsID.", true);
+    }
+
+    // =========================================================
+    // ✅ Delete record from tblMemKidsInfo
+    // =========================================================
+    const deleteResult = await db.collection("tblMemKidsInfo").deleteOne({ KidsID });
+
+    // =========================================================
+    // ✅ Success response
+    // =========================================================
+    return sendResponse(res, "Kid deleted successfully.", null, {
+      KidsID,
+      deletedCount: deleteResult.deletedCount,
+      deletedRecord: existingKid,
+    });
+  } catch (error) {
+    console.error("[PosUpdateKidsOnly - DELETE] ERROR:", error);
+    return sendResponse(res, "Error in PosUpdateKidsOnly delete.", true, {
+      error: String(error?.message || error),
+    });
+  }
+};
