@@ -5,6 +5,7 @@ const express = require("express");
 const router = express.Router();
 
 router.post("/memsignup", MemLogin.memsignup);
-//router.post("/memsignin", MemLogin.memsignin);
+router.post("/getmemdata", MemLogin.getmemdata);
+ 
 
 module.exports = router;

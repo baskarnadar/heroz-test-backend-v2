@@ -110,7 +110,7 @@ function sendResponse(
     const schoolDoc = {
       prtuserid: prtuseridVal,
       RegUserFullName: String(RegUserFullName).trim(),
-      RegUserStatus: "NOTACTIVE",
+      RegUserStatus: "ACTIVE",
       IsDataStatus: "1",
       RegUserEmailAddress:
         RegUserEmailAddress && String(RegUserEmailAddress).trim() !== ""
@@ -158,6 +158,82 @@ function sendResponse(
       res,
       500,
       "Error in Registration Inserted.",
+      true,
+      { error: String(error?.message || error) }
+    );
+  }
+};
+
+exports.getmemdata = async (req, res, next) => {
+  try {
+    console.log("==============================================");
+    console.log("[getmemdata] HIT:", new Date().toISOString());
+    console.log("==============================================");
+
+    const db = await connectToMongoDB();
+
+    // =========================================================
+    // ✅ Validate prtuserid from req.body
+    // =========================================================
+    const prtuserid = String(req.body?.prtuserid ?? "").trim();
+
+    if (!prtuserid) {
+      return sendResponse(res, 400, "prtuserid is required.", true);
+    }
+
+    // =========================================================
+    // ✅ Get member data from tblMemRegInfo
+    // =========================================================
+    const memData = await db.collection("tblMemRegInfo").findOne(
+      { prtuserid: prtuserid },
+      {
+        projection: {
+          _id: 0,
+          RegUserFullName: 1,
+          RegUserEmailAddress: 1,
+          RegUserMobileNo: 1,
+          RegUserImageName: 1,
+        },
+      }
+    );
+
+    if (!memData) {
+      return sendResponse(res, 404, "Member data not found.", true);
+    }
+
+    // =========================================================
+    // ✅ Build image URL
+    // =========================================================
+    const PosUserImageUrl = process.env.PosUserImageUrl || "";
+    const RegUserImageName = String(memData.RegUserImageName ?? "").trim();
+
+    const responseData = {
+      RegUserFullName: memData.RegUserFullName ?? null,
+      RegUserEmailAddress: memData.RegUserEmailAddress ?? null,
+      RegUserMobileNo: memData.RegUserMobileNo ?? null,
+      RegUserImageName: RegUserImageName || null,
+      RegUserImageNameUrl:
+        PosUserImageUrl && RegUserImageName
+          ? `${PosUserImageUrl}/${RegUserImageName}`
+          : null,
+    };
+
+    // =========================================================
+    // ✅ Success response
+    // =========================================================
+    return sendResponse(
+      res,
+      200,
+      "Member data fetched successfully.",
+      false,
+      responseData
+    );
+  } catch (error) {
+    console.error("[getmemdata] ERROR:", error);
+    return sendResponse(
+      res,
+      500,
+      "Error in getmemdata.",
       true,
       { error: String(error?.message || error) }
     );
