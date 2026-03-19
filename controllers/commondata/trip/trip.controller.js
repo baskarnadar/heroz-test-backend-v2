@@ -2320,26 +2320,53 @@ exports.PosAddKidsOnly = async (req, res) => {
     for (let i = 0; i < kidsInfo.length; i++) {
       const kid = sanitize(kidsInfo[i]);
 
-      const KidsName = normalizeText(kid.KidsName ?? kid.kidsName ?? kid.name, 150);
-      const KidsClassName = normalizeText(
-        kid.KidsClassName ?? kid.ClassName ?? kid.kidsClassName ?? kid.className,
-        100
-      );
-      const KidsSchoolName = normalizeText(
-        kid.KidsSchoolName ?? kid.SchoolName ?? kid.KidsSchool ?? kid.schoolName,
+      const KidsName = normalizeText(
+        kid.KidsName ?? kid.kidsName ?? kid.name,
         150
       );
+
+      const KidsClassName = normalizeText(
+        kid.KidsClassName ??
+          kid.ClassName ??
+          kid.kidsClassName ??
+          kid.className,
+        100
+      );
+
+      const KidsSchoolName = normalizeText(
+        kid.KidsSchoolName ??
+          kid.SchoolName ??
+          kid.KidsSchool ??
+          kid.schoolName ??
+          "",
+        150
+      );
+
       const KidsGender = normalizeGender(kid.KidsGender ?? kid.gender);
 
-      const KidsSchoolNo = normalizeText(kid.KidsSchoolNo ?? kid.SchoolNo ?? kid.kidsSchoolNo ?? "", 50);
-      const KidsDateOfBirth = normalizeDOB(kid.KidsDateOfBirth ?? kid.DateOfBirth ?? kid.kidsDateOfBirth ?? kid.dob);
-      const KidsAdditionalNote = normalizeText(kid.KidsAdditionalNote ?? kid.AdditionalNote ?? kid.notes ?? "", 200);
+      const KidsSchoolNo = normalizeText(
+        kid.KidsSchoolNo ?? kid.SchoolNo ?? kid.kidsSchoolNo ?? "",
+        50
+      );
+
+      const KidsDateOfBirth = normalizeDOB(
+        kid.KidsDateOfBirth ??
+          kid.DateOfBirth ??
+          kid.kidsDateOfBirth ??
+          kid.dob
+      );
+
+      const KidsAdditionalNote = normalizeText(
+        kid.KidsAdditionalNote ?? kid.AdditionalNote ?? kid.notes ?? "",
+        200
+      );
 
       // ✅ Required validation only
-      if (!KidsName || !KidsClassName || !KidsSchoolName || !KidsGender) {
+      // ✅ KidsSchoolName removed from required fields
+      if (!KidsName || !KidsClassName || !KidsGender) {
         invalidSkipped.push({
           index: i,
-          reason: "KidsName, KidsClassName, KidsSchoolName, KidsGender are required.",
+          reason: "KidsName, KidsClassName, and KidsGender are required.",
         });
         continue;
       }
@@ -2356,7 +2383,7 @@ exports.PosAddKidsOnly = async (req, res) => {
         KidsID: generateUniqueId(),
         KidsName,
         KidsClassName,
-        KidsSchoolName,
+        KidsSchoolName: KidsSchoolName || null,
         KidsGender,
         KidsSchoolNo: KidsSchoolNo || null,
         KidsDateOfBirth,
@@ -2377,9 +2404,12 @@ exports.PosAddKidsOnly = async (req, res) => {
       });
     }
 
-    const insertResult = await db.collection("tblMemKidsInfo").insertMany(kidsDocs, {
-      ordered: false,
-    });
+    const insertResult = await db.collection("tblMemKidsInfo").insertMany(
+      kidsDocs,
+      {
+        ordered: false,
+      }
+    );
 
     return sendResponse(res, "Kids inserted successfully.", null, {
       ParentsID,
