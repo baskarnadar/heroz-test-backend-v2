@@ -68,7 +68,7 @@ exports.cancelbooking = async (req, res, next) => {
       },
       {
         $set: {
-          BookingStatus: "CANCLED",
+          BookingStatus: "CANCELED",
           ModifyDate: now,
           ModifyBy: BookingParentsID,
           BookingCancelReason: BookingCancelReason,
