@@ -20,6 +20,6 @@ router.post("/attachImages", protectAPI,activity.attachImages);
 router.post("/getattachImages", protectAPI,activity.getattachImages);
 router.post("/removeattachImages", protectAPI,activity.removeattachImages);
 //API Without Token
-router.post("/getActivity", protectAPI,activity.getActivity);
+router.post("/getActivity",activity.getActivity);
 
 module.exports = router;

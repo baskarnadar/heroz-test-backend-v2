@@ -2089,11 +2089,7 @@ exports.PosGetParentsKidsInfo = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
 
-    const prtuseridRaw =
-      req.body?.prtuserid ??
-      req.body?.PrtUserID ??
-      req.body?.PrtUserId ??
-      "";
+    const prtuseridRaw =      req.body?.prtuserid   ;
 
     const prtuserid = String(prtuseridRaw).trim();
 
