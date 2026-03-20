@@ -59,7 +59,7 @@ exports.getkidsinterestList = async (req, res, next) => {
   }
 };
 
-exports.getkidsinterestAllList = async (req, res, next) => {
+ exports.getkidsinterestAllList = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
     const collection = db.collection("tbllokkidsinterest");
@@ -75,6 +75,18 @@ exports.getkidsinterestAllList = async (req, res, next) => {
           CreatedBy: 1,
           ModifyDate: 1,
           ModifyBy: 1,
+
+          // ✅ ADDED FIELD FROM DB
+          kidsinterestImageName: 1,
+
+          // ✅ ADDED IMAGE URL FIELD
+          kidsinterestImageNameUrl: {
+            $concat: [
+              process.env.ActivityImageUrl,
+              "/",
+              { $ifNull: ["$kidsinterestImageName", ""] }
+            ]
+          }
         }
       },
       { $sort: { CreatedDate: -1 } }  // ✅ Sort by newest
