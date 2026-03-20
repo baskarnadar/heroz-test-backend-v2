@@ -1160,6 +1160,7 @@ exports.updateActivity = async (req, res, next) => {
       actName: req.body.actName,
       actTypeID: req.body.actTypeID,
       actCategoryID: req.body.actCategoryID,
+      actKidsInterestID: req.body.actKidsInterestID,
       actDesc: req.body.actDesc,
 
       actImageName1: req.body.actImageName1,
