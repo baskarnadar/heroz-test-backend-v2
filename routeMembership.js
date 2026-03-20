@@ -7,7 +7,8 @@ const activitylistRoute = require('./controllers/membership/activity/activity.ro
 
 // Profile
 const profileRoute = require('./controllers/membership/profile/profile.route')
-
+// review
+const reviewRoute = require('./controllers/membership/review/review.route')
 // Booking
 const bookingRoute = require('./controllers/membership/booking/booking.route')
 
@@ -28,6 +29,7 @@ const memloginRoute = require('./controllers/membership/login/login.route')
 // Mount routes
 router.use('/membership/activity', activitylistRoute)
 router.use('/membership/profile', profileRoute)
+router.use('/membership/review', reviewRoute)
 router.use('/membership/booking', bookingRoute)
 
 // ✅ Mount wallet route
