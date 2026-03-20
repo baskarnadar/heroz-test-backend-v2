@@ -122,6 +122,7 @@ exports.createkidsinterest = async (req, res, next) => {
       kidsinterestID: generateUniqueId(),
       EnkidsinterestName: req.body.EnkidsinterestName,
       ArkidsinterestName: req.body.ArkidsinterestName,
+      kidsinterestImageName: req.body.kidsinterestImageName,
       IsDataStatus: req.body.IsDataStatus,
       CreatedDate: new Date(),
       CreatedBy: req.body.CreatedBy || null,
@@ -151,6 +152,7 @@ exports.updatekidsinterest = async (req, res, next) => {
     const updateFields = {
       EnkidsinterestName: req.body.EnkidsinterestName,
       ArkidsinterestName: req.body.ArkidsinterestName,
+       kidsinterestImageName: req.body.kidsinterestImageName,
       IsDataStatus: req.body.IsDataStatus,
       ModifyDate: new Date(),
       ModifyBy: req.body.ModifyBy || null,
