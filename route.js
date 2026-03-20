@@ -28,6 +28,7 @@ const OutComeRoute = require("./controllers/lookupdata/outcome/outcome.route");
 const CountryRoute = require("./controllers/lookupdata/country/country.route");
 const SchEduLevelRoute = require("./controllers/lookupdata/schedulevel/schedulevel.route");
 const LookupCategoryRoute = require("./controllers/lookupdata/category/category.route");
+const LookupkidsinterestRoute = require("./controllers/lookupdata/kidsinterest/kidsinterest.route");
 
 // Info routes
 const SchoolInfoRoute = require("./controllers/schoolinfo/school/school.route");
@@ -67,6 +68,7 @@ router.use("/api/lookupdata/outcome", OutComeRoute);
 router.use("/api/lookupdata/city", CityRoute);
 router.use("/api/lookupdata/country", CountryRoute);
 router.use("/api/lookupdata/category", LookupCategoryRoute);
+router.use("/api/lookupdata/kidsinterest", LookupkidsinterestRoute);
 router.use("/api/lookupdata/schedulevel", SchEduLevelRoute);
 
 // Info
