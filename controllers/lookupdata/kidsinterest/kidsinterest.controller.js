@@ -38,7 +38,7 @@ exports.getkidsinterestList = async (req, res, next) => {
           // ✅ ADDED IMAGE URL FIELD
           kidsinterestImageNameUrl: {
             $concat: [
-              process.env.ActivityGalleryUrl,
+              process.env.ActivityImageUrl,
               "/",
               { $ifNull: ["$kidsinterestImageName", ""] }
             ]
