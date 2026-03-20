@@ -89,7 +89,7 @@ exports.getkidsinterestAllList = async (req, res, next) => {
   }
 };
 
-exports.getkidsinterest = async (req, res, next) => {
+ exports.getkidsinterest = async (req, res, next) => {
   try {
     const { kidsinterestID } = req.body;
 
@@ -112,6 +112,9 @@ exports.getkidsinterest = async (req, res, next) => {
         CreatedBy: 1,
         ModifyDate: 1,
         ModifyBy: 1,
+
+        // ✅ ADDED (same as list API)
+        kidsinterestImageName: 1,
       }
     });
 
@@ -119,13 +122,17 @@ exports.getkidsinterest = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "kidsinterest not found" });
     }
 
+    // ✅ ADD IMAGE URL (same logic as aggregate)
+    kidsinterest.kidsinterestImageNameUrl = kidsinterest.kidsinterestImageName
+      ? `${process.env.ActivityImageUrl}/${kidsinterest.kidsinterestImageName}`
+      : "";
+
     sendResponse(res, "kidsinterest found.", null, kidsinterest, 1);
   } catch (error) {
     console.error("Error in getkidsinterest:", error);
     next(error);
   }
 };
-
 exports.createkidsinterest = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
