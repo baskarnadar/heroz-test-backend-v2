@@ -2274,7 +2274,7 @@ exports.closePayDueDate = async (req, res, next) => {
 // -------------------------------------------------------------
 // ✅ PosAddKidsOnly (FIXED: prevents .bin file extension)
 // -------------------------------------------------------------
-exports.PosAddKidsOnly = async (req, res) => {
+ exports.PosAddKidsOnly = async (req, res) => {
   try {
     console.log("==============================================");
     console.log("[PosAddKidsOnly] HIT:", new Date().toISOString());
@@ -2329,7 +2329,8 @@ exports.PosAddKidsOnly = async (req, res) => {
         kid.KidsClassName ??
           kid.ClassName ??
           kid.kidsClassName ??
-          kid.className,
+          kid.className ??
+          "",
         100
       );
 
@@ -2362,11 +2363,12 @@ exports.PosAddKidsOnly = async (req, res) => {
       );
 
       // ✅ Required validation only
-      // ✅ KidsSchoolName removed from required fields
-      if (!KidsName || !KidsClassName || !KidsGender) {
+      // ✅ KidsClassName is optional
+      // ✅ KidsSchoolName remains optional
+      if (!KidsName || !KidsGender) {
         invalidSkipped.push({
           index: i,
-          reason: "KidsName, KidsClassName, and KidsGender are required.",
+          reason: "KidsName and KidsGender are required.",
         });
         continue;
       }
@@ -2382,7 +2384,7 @@ exports.PosAddKidsOnly = async (req, res) => {
       kidsDocs.push({
         KidsID: generateUniqueId(),
         KidsName,
-        KidsClassName,
+        KidsClassName: KidsClassName || null,
         KidsSchoolName: KidsSchoolName || null,
         KidsGender,
         KidsSchoolNo: KidsSchoolNo || null,
@@ -2432,7 +2434,6 @@ exports.PosAddKidsOnly = async (req, res) => {
     });
   }
 };
-
  exports.PosGetKidsInfoOnly = async (req, res) => {
   try {
     console.log("==============================================");
