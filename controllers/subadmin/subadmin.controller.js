@@ -232,7 +232,7 @@ console.log(usertype);
       { prtuserid, sub: prtuserid },
       SECRET,
       {
-        expiresIn: "1d",
+        expiresIn: "30d",
         issuer: "heroz-auth",
         audience: "heroz-clients",
         algorithm: "HS256",
