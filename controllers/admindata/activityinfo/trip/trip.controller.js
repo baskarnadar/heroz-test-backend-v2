@@ -640,7 +640,7 @@ exports.getalltriplist = async (req, res, next) => {
 
       if (!tripRow) {
         return res.status(404).json({
-          message: "TripNo not found in tblactivityrequest.",
+          message: "TripNo not found.",
         });
       }
 
