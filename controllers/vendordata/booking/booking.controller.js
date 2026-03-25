@@ -13,122 +13,15 @@ function sendResponse(res, message, error, results, totalCount) {
   });
 }
   
-exports.cancelbooking = async (req, res, next) => {
-  try {
-
-    // =========================================================
-    // ✅ Read Required Fields
-    // =========================================================
-    const BookingID = String(req.body?.BookingID ?? "").trim();
-    const BookingParentsID = String(req.body?.BookingParentsID ?? "").trim();
-    const BookingCancelReason = String(req.body?.BookingCancelReason ?? "").trim();
-
-    // =========================================================
-    // ✅ Validate Required Fields
-    // =========================================================
-    if (!BookingID) {
-      return sendResponse(
-        res,
-        "BookingID1 is required.",
-        "BookingID2 is required.",
-        [],
-        0
-      );
-    }
-
-    if (!BookingParentsID) {
-      return sendResponse(
-        res,
-        "BookingParentsID is required.",
-        "BookingParentsID is required.",
-        [],
-        0
-      );
-    }
-
-    // =========================================================
-    // ✅ DB Connection
-    // =========================================================
-    const db = await connectToMongoDB();
-    const collection = db.collection("tblMemShipBookingInfo");
-
-    const now = new Date();
-
-    // =========================================================
-    // ✅ Update Booking
-    // =========================================================
-    const updateResult = await collection.updateOne(
-      {
-        $expr: {
-          $eq: [
-            { $trim: { input: { $toString: "$BookingID" }, chars: " ," } },
-            BookingID,
-          ],
-        },
-      },
-      {
-        $set: {
-          BookingStatus: "CANCELED",
-          ModifyDate: now,
-          ModifyBy: BookingParentsID,
-          BookingCancelReason: BookingCancelReason,
-        },
-      }
-    );
-
-    // =========================================================
-    // ✅ If Booking Not Found
-    // =========================================================
-    if (!updateResult.matchedCount) {
-      return sendResponse(
-        res,
-        "Booking not found.",
-        "Booking not found.",
-        [],
-        0
-      );
-    }
-
-    // =========================================================
-    // ✅ Fetch Updated Record
-    // =========================================================
-    const updatedBooking = await collection.findOne(
-      {
-        $expr: {
-          $eq: [
-            { $trim: { input: { $toString: "$BookingID" }, chars: " ," } },
-            BookingID,
-          ],
-        },
-      },
-      {
-        projection: { _id: 0 },
-      }
-    );
-
-    // =========================================================
-    // ✅ Success Response
-    // =========================================================
-    return sendResponse(
-      res,
-      "Booking cancelled successfully.",
-      null,
-      updatedBooking ? [updatedBooking] : [],
-      1
-    );
-
-  } catch (error) {
-    console.error("Error in cancelbooking:", error);
-    next(error);
-  }
-};
- exports.getbookinglist = async (req, res, next) => {
+ 
+ exports.vdrgetbookinglist = async (req, res, next) => {
   try {
     const page = Math.max(parseInt(req.body?.page ?? 1, 10), 1);
     const limit = Math.max(parseInt(req.body?.limit ?? 10, 10), 1);
     const skip = (page - 1) * limit;
 
     const BookingParentsID = String(req.body?.BookingParentsID ?? "").trim();
+    const BookingVendorID = String(req.body?.BookingVendorID ?? "").trim();
     const BookingStatus = String(req.body?.BookingStatus ?? "").trim();
 
     const db = await connectToMongoDB();
@@ -138,6 +31,7 @@ exports.cancelbooking = async (req, res, next) => {
 
     const matchStage = {};
     if (BookingParentsID) matchStage.BookingParentsID = BookingParentsID;
+    if (BookingVendorID) matchStage.BookingVendorID = BookingVendorID;
     if (BookingStatus) matchStage.BookingStatus = BookingStatus;
 
     const rawActBaseUrl = String(process.env.ActivityImageUrl || "");
@@ -282,6 +176,49 @@ exports.cancelbooking = async (req, res, next) => {
         },
       },
 
+      // ✅ Activity price info from tblactpriceinfo
+      // Filter:
+      // tblactpriceinfo.ActivityID = tblMemShipBookingInfo.BookingActivityID
+      // tblactpriceinfo.VendorID   = tblMemShipBookingInfo.BookingVendorID
+      {
+        $lookup: {
+          from: "tblactpriceinfo",
+          let: {
+            activityId: "$BookingActivityID",
+            vendorId: "$BookingVendorID",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    {
+                      $eq: [
+                        { $trim: { input: { $toString: "$ActivityID" }, chars: " ," } },
+                        { $trim: { input: { $toString: "$$activityId" }, chars: " ," } },
+                      ],
+                    },
+                    {
+                      $eq: [
+                        { $trim: { input: { $toString: "$VendorID" }, chars: " ," } },
+                        { $trim: { input: { $toString: "$$vendorId" }, chars: " ," } },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+              },
+            },
+            { $sort: { CreatedDate: -1, UpdateDate: -1, _id: -1 } },
+          ],
+          as: "ActivityPrice",
+        },
+      },
+
       // ✅ Available Time
       {
         $lookup: {
@@ -367,6 +304,7 @@ exports.cancelbooking = async (req, res, next) => {
           ActivityInfo: { $ifNull: [{ $arrayElemAt: ["$ActivityInfo", 0] }, {}] },
           VendorInfo: { $ifNull: [{ $arrayElemAt: ["$VendorInfo", 0] }, {}] },
           ActivityRequestInfo: { $ifNull: [{ $arrayElemAt: ["$ActivityRequestInfo", 0] }, {}] },
+          ActivityPrice: { $ifNull: ["$ActivityPrice", []] },
         },
       },
 
@@ -538,6 +476,7 @@ exports.cancelbooking = async (req, res, next) => {
         return {
           ...a,
           AvailableDay: days.join(", "),
+          ActivityPrice: Array.isArray(a.ActivityPrice) ? a.ActivityPrice : [],
           BookingQRInfo: {
             BookingID: qrPayloadObject.BookingID,
             BookingRequestID: qrPayloadObject.BookingRequestID,
@@ -556,226 +495,7 @@ exports.cancelbooking = async (req, res, next) => {
     next(error);
   }
 };
- exports.addBooking = async (req, res, next) => {
-  try {
-    const db = await connectToMongoDB()
-
-    const reqParentsID = String(req.body?.ParentsID ?? '').trim()
-    if (!reqParentsID) {
-      return sendResponse(res, 'ParentsID is required.', 'ParentsID is required', [], 0)
-    }
-
-    const BookingID = GetRefNo();
-
-    console.log("BookingID");
-    console.log(BookingID);
-
-    const PurchasedBookingID = String(req.body?.PurchasedBookingID ?? '').trim()  
-
-    const insertResult = {
-      insertedMembership: false,
-      insertedLedger: false,
-      membershipId: null,
-      ledgerId: null,
-    }
-
-    const now = new Date()
-
-    // =========================================================
-    // ✅ INSERT MEMBERSHIP BOOKING
-    // =========================================================
-    let insertedBookingSnapshot = null
-    const membershipCol = db.collection('tblMemShipBookingInfo')
-
-    const BookMembershipInfoIDVal =  generateUniqueId(); 
-    const BookingRequestID =  generateUniqueId();
-    const BookingParentsID = String(req.body?.BookingParentsID ).trim()
-    const BookingKidsID = String(req.body?.BookingKidsID).trim()
-
-    const BookingStarPerKids = Number(req.body?.BookingStarPerKids)
-    const BookingVendorID = String(req.body?.BookingVendorID ).trim()
-    const BookingActivityID = String(req.body?.BookingActivityID ).trim()
-
-    const BookingActivityDate = String(req.body?.BookingActivityDate ).trim()
-    const BookingActivityTime = String(req.body?.BookingActivityTime ).trim()
-
-    const BookingDate = String(req.body?.BookingDate ?? '').trim()
-    const CreatedBy = String(req.body?.CreatedBy ?? '').trim() || 'system'
-
-    if (!BookingID) return sendResponse(res, 'BookingID is required for membership insert.', 'BookingID is required', [], 0)
-    if (!BookingRequestID) return sendResponse(res, 'BookingRequestID is required for membership insert.', 'BookingRequestID is required', [], 0)
-    if (!BookingParentsID) return sendResponse(res, 'BookingParentsID is required for membership insert.', 'BookingParentsID is required', [], 0)
-    if (!BookingKidsID) return sendResponse(res, 'BookingKidsID is required for membership insert.', 'BookingKidsID is required', [], 0)
-
-    const membershipDoc = {
-      BookMembershipInfoID: generateUniqueId(),
-      BookingID: BookingID,
-      BookingRequestID,
-      BookingParentsID,
-      BookingKidsID,
-      BookingStarPerKids,
-      BookingVendorID,
-      BookingActivityID,
-      BookingActivityDate,
-      BookingActivityTime,
-      BookingDate,
-      BookingStatus: "BOOKED",
-      CreatedDate: now,
-      CreatedBy,
-    }
-
-    Object.keys(membershipDoc).forEach((k) => membershipDoc[k] === undefined && delete membershipDoc[k])
-
-    const ins = await membershipCol.insertOne(membershipDoc)
-    insertResult.insertedMembership = true
-    insertResult.membershipId = membershipDoc.BookMembershipInfoID || ins?.insertedId || null
-
-    insertedBookingSnapshot = membershipDoc
-
-    // =========================================================
-    // ✅ INSERT LEDGER
-    // =========================================================
-    const shouldAutoLedgerFromBooking = BookingID && !PurchasedBookingID
-
-    if (PurchasedBookingID || shouldAutoLedgerFromBooking) {
-      const ledgerCol = db.collection('tblMemShipStarLedger')
-
-      const PurchasedStarIDRaw = generateUniqueId();
-      const PurchasedParentsID = BookingParentsID ;
-      const PurchasedActivityID = String(BookingActivityID).trim()
-      const PurchasedKidsID = String(req.body?.PurchasedKidsID ?? insertedBookingSnapshot?.BookingKidsID ?? req.body?.KidsID ?? '').trim()
-      const PurchasedRequestID = String(BookingRequestID).trim() 
-      const PurchasedBookingID = String(BookingID).trim()
-
-      const PurchasedStar = Number(req.body?.BookingStarPerKids)
-
-      const PurchasedDateRaw = String(req.body?.PurchasedDate ?? '').trim()
-      const PurchasedDate = PurchasedDateRaw ? PurchasedDateRaw : now.toISOString()
-
-      const CreatedBy = String(req.body?.CreatedBy ?? '').trim() || 'system'
-
-      if (!PurchasedBookingID) return sendResponse(res, 'PurchasedBookingID is required for ledger insert.', 'PurchasedBookingID is required', [], 0)
-      if (!PurchasedParentsID) return sendResponse(res, 'PurchasedParentsID is required for ledger insert.', 'PurchasedParentsID is required', [], 0)
-      if (!PurchasedRequestID) return sendResponse(res, 'PurchasedRequestID is required for ledger insert.', 'PurchasedRequestID is required', [], 0)
-      if (!PurchasedKidsID) return sendResponse(res, 'PurchasedKidsID is required for ledger insert.', 'PurchasedKidsID is required', [], 0)
-
-      const ledgerDoc = {
-        PurchasedStarID: PurchasedStarIDRaw ? PurchasedStarIDRaw : generateUniqueId(),
-        PurchasedParentsID,
-        PurchasedActivityID,
-        PurchasedKidsID,
-        PurchasedRequestID,
-        PurchasedBookingID,
-        PurchasedStar,
-        PurchasedDate,
-        CreatedDate: now,
-        CreatedBy,
-      }
-
-      Object.keys(ledgerDoc).forEach((k) => ledgerDoc[k] === undefined && delete ledgerDoc[k])
-
-      const ins = await ledgerCol.insertOne(ledgerDoc)
-      insertResult.insertedLedger = true
-      insertResult.ledgerId = ledgerDoc.PurchasedStarID || ins?.insertedId || null
-    }
-
-    // =========================================================
-    // ✅ LIST (NO FILTER / NO PAGINATION)
-    // =========================================================
-    const bookingCol = db.collection('tblBookMembershipInfo')
-
-    const data = await bookingCol
-      .find({}, { projection: { _id: 0 } })
-      .sort({ CreatedDate: -1 })
-      .toArray()
-
-    const totalCount = data.length
-
-    const message =
-      insertResult.insertedMembership || insertResult.insertedLedger ? 'booking inserted.' : 'booking list fetched.'
-
-    const responseData = {
-      list: data,
-      insertResult,
-    }
-
-    return sendResponse(res, message, null, responseData, totalCount)
-
-  } catch (error) {
-    console.error('Error in booking:', error)
-    next(error)
-  }
-}
- exports.getbookingqr = async (req, res, next) => {
-  try {
-    // =========================================================
-    // ✅ Get Required Fields Only
-    // =========================================================
-    const BookingID = String(req.body?.BookingID ?? '').trim()
-    const BookingRequestID = String(req.body?.BookingRequestID ?? '').trim()
-    const BookingParentsID = String(req.body?.BookingParentsID ?? '').trim() // ✅ ADDED
-    const BookingActivityID = String(req.body?.BookingActivityID ?? '').trim()
-    const BookingVendorID = String(req.body?.BookingVendorID ?? '').trim()
-
-    // =========================================================
-    // ✅ Validate Required Fields
-    // =========================================================
-    if (!BookingID)
-      return sendResponse(res, 'BookingID is required.', 'BookingID is required', [], 0)
-
-    if (!BookingRequestID)
-      return sendResponse(res, 'BookingRequestID is required.', 'BookingRequestID is required', [], 0)
-
-    if (!BookingParentsID)
-      return sendResponse(res, 'BookingParentsID is required.', 'BookingParentsID is required', [], 0)
-
-    if (!BookingActivityID)
-      return sendResponse(res, 'BookingActivityID is required.', 'BookingActivityID is required', [], 0)
-
-    if (!BookingVendorID)
-      return sendResponse(res, 'BookingVendorID is required.', 'BookingVendorID is required', [], 0)
-
-    // =========================================================
-    // ✅ Generate QR Code
-    // =========================================================
-    const QRCode = require('qrcode')
-
-    const qrPayload = JSON.stringify({
-      BookingID,
-      BookingRequestID,
-      BookingParentsID, // ✅ ADDED
-      BookingActivityID,
-      BookingVendorID,
-    })
-
-    const qrDataUrl = await QRCode.toDataURL(qrPayload, {
-      errorCorrectionLevel: 'M',
-      margin: 1,
-      width: 300,
-    })
-
-    // =========================================================
-    // ✅ Response
-    // =========================================================
-    return sendResponse(
-      res,
-      'QR generated successfully.',
-      null,
-      {
-        BookingID,
-        BookingRequestID,
-        BookingParentsID, // ✅ ADDED
-        BookingActivityID,
-        BookingVendorID,
-        qrDataUrl, // data:image/png;base64,...
-      },
-      1
-    )
-  } catch (error) {
-    console.error('Error in getbookingqr:', error)
-    next(error)
-  }
-}
+ 
  exports.vdrgetbookingSummary = async (req, res, next) => {
   try {
     const BookingVendorID = String(req.body?.BookingVendorID ?? "").trim()
@@ -1125,7 +845,7 @@ exports.vdrgetbookingSummaryList = async (req, res, next) => {
     const BookingRequestID = String(req.body?.BookingRequestID ?? "").trim()
 
     if (!BookingID) {
-      return sendResponse(res, "BookingID is required.", true, null, 0)
+      return sendResponse(res, "BookingID-1 is required.", true, null, 0)
     }
 
     if (!BookingRequestID) {
@@ -1350,7 +1070,7 @@ exports.vdrupdateBookingStatus = async (req, res, next) => {
     // ✅ Validate Required Fields
     // =========================================================
     if (!BookingID) {
-      return sendResponse(res, "BookingID is required.", true, null, 0)
+      return sendResponse(res, "bk is required.", true, null, 0)
     }
 
     if (!BookingRequestID) {
