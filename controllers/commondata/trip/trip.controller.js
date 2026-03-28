@@ -2130,8 +2130,7 @@ exports.PosGetParentsKidsInfo = async (req, res, next) => {
       return `${b.replace(/\/+$/, "")}/${f.replace(/^\/+/, "")}`;
     };
 
-    const RegUserImageName =
-      regInfo.RegUserFullName ||
+    const RegUserImageName = 
       regInfo.RegUserImageName ||
       regInfo.RegUserImageName ||
       "logo.png";
@@ -2169,10 +2168,10 @@ exports.PosGetParentsKidsInfo = async (req, res, next) => {
     const payload = {
       prtuserid,
       VendorID: prtuserid,
-      RegUserFullName: regInfo.vdrName || null,
-      RegUserEmailAddress: regInfo.vdrEmailAddress || null,
+      RegUserFullName: regInfo.RegUserFullName || null,
+      RegUserEmailAddress: regInfo.RegUserEmailAddress || null,
       RegUserMobileNo:
-        regInfo.RegUserMobileNo || regInfo.vdrMobileNo1 || null,
+        regInfo.RegUserMobileNo || regInfo.RegUserMobileNo || null,
       RegUserImageName,
       RegUserImageNameUrl,
       KidsInformation,
@@ -2180,11 +2179,11 @@ exports.PosGetParentsKidsInfo = async (req, res, next) => {
 
     return sendResponse(res, "Success.", null, payload);
   } catch (error) {
-    console.error("Error in PosGetParentsKidsInfo:", error);
+    console.error("Error in  :", error);
 
     return sendResponse(
       res,
-      "Error in PosGetParentsKidsInfo.",
+      "Error in  .",
       true,
       { error: String(error?.message || error) }
     );
