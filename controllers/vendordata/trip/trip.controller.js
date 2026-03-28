@@ -165,7 +165,7 @@ exports.impParentsMobileNo = async (req, res) => {
     }
 
     const db = await connectToMongoDB()
-    const col = db.collection('tblBookTripParentsMobileNo')
+    const col = db.collection('tblBookTripParentsInfo')
 
     const reqKey = String(RequestID).trim()
     const vendKey = String(VendorID).trim()

@@ -56,7 +56,7 @@ function sendResponse(res, message, error = null, data = null) {
 
   try {
     const db = await connectToMongoDB()
-    const parentsCol = db.collection('tblBookTripParentsMobileNo')
+    const parentsCol = db.collection('tblBookTripParentsInfo')
 
     // Find an APPROVED mobile row (most recent first)
     const match = {
@@ -150,7 +150,7 @@ function sendResponse(res, message, error = null, data = null) {
       // Join parent mobile rows by RequestID (optional)
       {
         $lookup: {
-          from: 'tblBookTripParentsMobileNo',
+          from: 'tblBookTripParentsInfo',
           let: { reqID: '$RequestID' },
           pipeline: [
             {
