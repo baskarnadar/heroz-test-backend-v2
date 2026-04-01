@@ -11,7 +11,7 @@ function sendResponse(res, message, error, results,totalCount) {
   });
 } 
 
-exports.getkidsinterestList = async (req, res, next) => {
+ exports.getkidsinterestList = async (req, res, next) => {
   try {
     const { page = 1, limit = 5 } = req.body;
 
@@ -26,6 +26,7 @@ exports.getkidsinterestList = async (req, res, next) => {
           kidsinterestID: 1,
           EnkidsinterestName: 1,
           ArkidsinterestName: 1,
+          EnkidsinterestDesc: 1,
           IsDataStatus: 1,
           CreatedDate: 1,
           CreatedBy: 1,
@@ -70,16 +71,20 @@ exports.getkidsinterestList = async (req, res, next) => {
           kidsinterestID: 1,
           EnkidsinterestName: 1,
           ArkidsinterestName: 1,
+
+          // ✅ ADD THIS FIELD
+          EnkidsinterestDesc: 1,
+
           IsDataStatus: 1,
           CreatedDate: 1,
           CreatedBy: 1,
           ModifyDate: 1,
           ModifyBy: 1,
 
-          // ✅ ADDED FIELD FROM DB
+          // ✅ EXISTING
           kidsinterestImageName: 1,
 
-          // ✅ ADDED IMAGE URL FIELD
+          // ✅ IMAGE URL
           kidsinterestImageNameUrl: {
             $concat: [
               process.env.ActivityImageUrl,
@@ -89,7 +94,7 @@ exports.getkidsinterestList = async (req, res, next) => {
           }
         }
       },
-      { $sort: { CreatedDate: -1 } }  // ✅ Sort by newest
+      { $sort: { CreatedDate: -1 } }
     ]).toArray();
 
     const totalCount = kidsinterest.length;
@@ -119,27 +124,35 @@ exports.getkidsinterestList = async (req, res, next) => {
         kidsinterestID: 1,
         EnkidsinterestName: 1,
         ArkidsinterestName: 1,
+
+        // ✅ ADD THIS FIELD
+        EnkidsinterestDesc: 1,
+
         IsDataStatus: 1,
         CreatedDate: 1,
         CreatedBy: 1,
         ModifyDate: 1,
         ModifyBy: 1,
 
-        // ✅ ADDED (same as list API)
+        // ✅ EXISTING
         kidsinterestImageName: 1,
       }
     });
 
     if (!kidsinterest) {
-      return res.status(404).json({ success: false, message: "kidsinterest not found" });
+      return res.status(404).json({
+        success: false,
+        message: "kidsinterest not found"
+      });
     }
 
-    // ✅ ADD IMAGE URL (same logic as aggregate)
+    // ✅ IMAGE URL
     kidsinterest.kidsinterestImageNameUrl = kidsinterest.kidsinterestImageName
       ? `${process.env.ActivityImageUrl}/${kidsinterest.kidsinterestImageName}`
       : "";
 
     sendResponse(res, "kidsinterest found.", null, kidsinterest, 1);
+
   } catch (error) {
     console.error("Error in getkidsinterest:", error);
     next(error);
