@@ -1,17 +1,18 @@
 const { connectToMongoDB } = require("../../../database/mongodb");
 const { generateUniqueId } = require("../../../controllers/operation/operation");
+
 // Helper function to send responses
-function sendResponse(res, message, error, results,totalCount) {
+function sendResponse(res, message, error, results, totalCount) {
   res.status(error ? 400 : 200).json({
     'statusCode': error ? 400 : 200,
     'message': message,
     'data': results,
     'error': error,
-    'totalCount':totalCount
+    'totalCount': totalCount
   });
-} 
+}
 
- exports.getkidsinterestList = async (req, res, next) => {
+exports.getkidsinterestList = async (req, res, next) => {
   try {
     const { page = 1, limit = 5 } = req.body;
 
@@ -27,16 +28,15 @@ function sendResponse(res, message, error, results,totalCount) {
           EnkidsinterestName: 1,
           ArkidsinterestName: 1,
           EnkidsinterestDesc: 1,
+          ArkidsinterestDesc: 1,
           IsDataStatus: 1,
           CreatedDate: 1,
           CreatedBy: 1,
           ModifyDate: 1,
           ModifyBy: 1,
 
-          // ✅ ADDED FIELD FROM DB
           kidsinterestImageName: 1,
 
-          // ✅ ADDED IMAGE URL FIELD
           kidsinterestImageNameUrl: {
             $concat: [
               process.env.ActivityImageUrl,
@@ -46,7 +46,7 @@ function sendResponse(res, message, error, results,totalCount) {
           }
         }
       },
-      { $sort: { CreatedDate: -1 } },  // ✅ descending order
+      { $sort: { CreatedDate: -1 } },
       { $skip: skip },
       { $limit: parseInt(limit) }
     ]).toArray();
@@ -60,7 +60,7 @@ function sendResponse(res, message, error, results,totalCount) {
   }
 };
 
- exports.getkidsinterestAllList = async (req, res, next) => {
+exports.getkidsinterestAllList = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
     const collection = db.collection("tbllokkidsinterest");
@@ -71,20 +71,16 @@ function sendResponse(res, message, error, results,totalCount) {
           kidsinterestID: 1,
           EnkidsinterestName: 1,
           ArkidsinterestName: 1,
-
-          // ✅ ADD THIS FIELD
           EnkidsinterestDesc: 1,
-
+          ArkidsinterestDesc: 1,
           IsDataStatus: 1,
           CreatedDate: 1,
           CreatedBy: 1,
           ModifyDate: 1,
           ModifyBy: 1,
 
-          // ✅ EXISTING
           kidsinterestImageName: 1,
 
-          // ✅ IMAGE URL
           kidsinterestImageNameUrl: {
             $concat: [
               process.env.ActivityImageUrl,
@@ -106,7 +102,7 @@ function sendResponse(res, message, error, results,totalCount) {
   }
 };
 
- exports.getkidsinterest = async (req, res, next) => {
+exports.getkidsinterest = async (req, res, next) => {
   try {
     const { kidsinterestID } = req.body;
 
@@ -124,17 +120,13 @@ function sendResponse(res, message, error, results,totalCount) {
         kidsinterestID: 1,
         EnkidsinterestName: 1,
         ArkidsinterestName: 1,
-
-        // ✅ ADD THIS FIELD
         EnkidsinterestDesc: 1,
-
+        ArkidsinterestDesc: 1,
         IsDataStatus: 1,
         CreatedDate: 1,
         CreatedBy: 1,
         ModifyDate: 1,
         ModifyBy: 1,
-
-        // ✅ EXISTING
         kidsinterestImageName: 1,
       }
     });
@@ -146,7 +138,6 @@ function sendResponse(res, message, error, results,totalCount) {
       });
     }
 
-    // ✅ IMAGE URL
     kidsinterest.kidsinterestImageNameUrl = kidsinterest.kidsinterestImageName
       ? `${process.env.ActivityImageUrl}/${kidsinterest.kidsinterestImageName}`
       : "";
@@ -158,7 +149,8 @@ function sendResponse(res, message, error, results,totalCount) {
     next(error);
   }
 };
- exports.createkidsinterest = async (req, res, next) => {
+
+exports.createkidsinterest = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
 
@@ -167,6 +159,7 @@ function sendResponse(res, message, error, results,totalCount) {
       EnkidsinterestName: req.body.EnkidsinterestName,
       ArkidsinterestName: req.body.ArkidsinterestName,
       EnkidsinterestDesc: req.body.EnkidsinterestDesc,
+      ArkidsinterestDesc: req.body.ArkidsinterestDesc,
       kidsinterestImageName: req.body.kidsinterestImageName,
       IsDataStatus: req.body.IsDataStatus,
       CreatedDate: new Date(),
@@ -183,7 +176,7 @@ function sendResponse(res, message, error, results,totalCount) {
   }
 };
 
- exports.updatekidsinterest = async (req, res, next) => {
+exports.updatekidsinterest = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
     const collection = db.collection('tbllokkidsinterest');
@@ -200,10 +193,8 @@ function sendResponse(res, message, error, results,totalCount) {
     const updateFields = {
       EnkidsinterestName: req.body.EnkidsinterestName,
       ArkidsinterestName: req.body.ArkidsinterestName,
-
-      // ✅ ADD THIS LINE
       EnkidsinterestDesc: req.body.EnkidsinterestDesc,
-
+      ArkidsinterestDesc: req.body.ArkidsinterestDesc,
       kidsinterestImageName: req.body.kidsinterestImageName,
       IsDataStatus: req.body.IsDataStatus,
       ModifyDate: new Date(),
