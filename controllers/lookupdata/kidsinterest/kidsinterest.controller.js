@@ -145,7 +145,7 @@ exports.getkidsinterestList = async (req, res, next) => {
     next(error);
   }
 };
-exports.createkidsinterest = async (req, res, next) => {
+ exports.createkidsinterest = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
 
@@ -153,6 +153,7 @@ exports.createkidsinterest = async (req, res, next) => {
       kidsinterestID: generateUniqueId(),
       EnkidsinterestName: req.body.EnkidsinterestName,
       ArkidsinterestName: req.body.ArkidsinterestName,
+      EnkidsinterestDesc: req.body.EnkidsinterestDesc,
       kidsinterestImageName: req.body.kidsinterestImageName,
       IsDataStatus: req.body.IsDataStatus,
       CreatedDate: new Date(),
@@ -169,7 +170,7 @@ exports.createkidsinterest = async (req, res, next) => {
   }
 };
 
-exports.updatekidsinterest = async (req, res, next) => {
+ exports.updatekidsinterest = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
     const collection = db.collection('tbllokkidsinterest');
@@ -177,13 +178,20 @@ exports.updatekidsinterest = async (req, res, next) => {
     const { kidsinterestID } = req.body;
 
     if (!kidsinterestID) {
-      return res.status(400).json({ success: false, message: "kidsinterestID is required" });
+      return res.status(400).json({
+        success: false,
+        message: "kidsinterestID is required"
+      });
     }
 
     const updateFields = {
       EnkidsinterestName: req.body.EnkidsinterestName,
       ArkidsinterestName: req.body.ArkidsinterestName,
-       kidsinterestImageName: req.body.kidsinterestImageName,
+
+      // ✅ ADD THIS LINE
+      EnkidsinterestDesc: req.body.EnkidsinterestDesc,
+
+      kidsinterestImageName: req.body.kidsinterestImageName,
       IsDataStatus: req.body.IsDataStatus,
       ModifyDate: new Date(),
       ModifyBy: req.body.ModifyBy || null,
@@ -195,13 +203,23 @@ exports.updatekidsinterest = async (req, res, next) => {
     );
 
     if (updateResult.matchedCount === 0) {
-      return res.status(404).json({ success: false, message: "No kidsinterest found to update" });
+      return res.status(404).json({
+        success: false,
+        message: "No kidsinterest found to update"
+      });
     }
 
-    return res.status(200).json({ success: true, message: "kidsinterest updated successfully" });
+    return res.status(200).json({
+      success: true,
+      message: "kidsinterest updated successfully"
+    });
+
   } catch (error) {
     console.error("Update kidsinterest Error:", error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
   }
 };
 
