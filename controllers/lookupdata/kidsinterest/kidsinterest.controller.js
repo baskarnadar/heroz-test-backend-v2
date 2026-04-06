@@ -14,7 +14,7 @@ function sendResponse(res, message, error, results, totalCount) {
 
 exports.getkidsinterestList = async (req, res, next) => {
   try {
-    const { page = 1, limit = 5 } = req.body;
+    const { page = 1, limit = 100 } = req.body;
 
     const db = await connectToMongoDB();
     const collection = db.collection("tbllokkidsinterest");
