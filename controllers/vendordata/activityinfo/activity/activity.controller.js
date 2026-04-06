@@ -717,7 +717,7 @@ exports.oldgetActivity = async (req, res, next) => {
   }
 };
 
-exports.getActivity = async (req, res, next) => {
+ exports.getActivity = async (req, res, next) => {
   try {
     const { ActivityID, VendorID } = req.body;
 
@@ -864,6 +864,46 @@ exports.getActivity = async (req, res, next) => {
                 input: "$categoryInfo",
                 as: "cat",
                 in: "$$cat.EnCategoryName",
+              },
+            },
+          },
+        },
+
+        // ✅ NEW: Join with tbllokkidsinterest for Membership Interest
+        {
+          $lookup: {
+            from: "tbllokkidsinterest",
+            localField: "actKidsInterestID",
+            foreignField: "kidsinterestID",
+            as: "kidsInterestInfo",
+          },
+        },
+
+        // ✅ NEW: Map kids interest image URLs
+        {
+          $addFields: {
+            kidsInterestInfo: {
+              $map: {
+                input: "$kidsInterestInfo",
+                as: "ki",
+                in: {
+                  kidsinterestID: "$$ki.kidsinterestID",
+                  EnkidsinterestName: "$$ki.EnkidsinterestName",
+                  ArkidsinterestName: "$$ki.ArkidsinterestName",
+                  kidsinterestImageNameUrl: {
+                    $cond: [
+                      { $ifNull: ["$$ki.kidsinterestImageName", false] },
+                      {
+                        $concat: [
+                          process.env.KidsInterestImageUrl || "",
+                          "/",
+                          "$$ki.kidsinterestImageName",
+                        ],
+                      },
+                      null,
+                    ],
+                  },
+                },
               },
             },
           },
@@ -1083,7 +1123,6 @@ exports.getActivity = async (req, res, next) => {
     next(error);
   }
 };
-
 
 //-- Update Aug 30
 exports.updateActivity = async (req, res, next) => {
