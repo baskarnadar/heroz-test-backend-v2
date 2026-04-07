@@ -589,6 +589,14 @@ exports.getalltriplist = async (req, res, next) => {
 
     const tripNo = String(tripNoRaw || "").trim();
 
+    // ✅ OPTIONAL: actRequestStatus filter from body
+    const actRequestStatus =
+      req.body?.actRequestStatus === undefined ||
+      req.body?.actRequestStatus === null ||
+      String(req.body?.actRequestStatus).trim() === ""
+        ? null
+        : String(req.body?.actRequestStatus).trim();
+
     // Existing body fields (used only if TripNo not provided)
     let ActivityID = req.body?.ActivityID;
     let VendorID = req.body?.VendorID;
@@ -616,34 +624,38 @@ exports.getalltriplist = async (req, res, next) => {
       const actReqCol = db.collection("tblactivityrequest");
 
       // Match: actRequestRefNo = TripNo (CASE-INSENSITIVE)
-      const tripRow = await actReqCol.findOne(
-        {
-          $expr: {
-            $eq: [
-              { $toUpper: { $ifNull: ["$actRequestRefNo", ""] } },
-              tripNo.toUpperCase(),
-            ],
-          },
+      const tripQuery = {
+        $expr: {
+          $eq: [
+            { $toUpper: { $ifNull: ["$actRequestRefNo", ""] } },
+            tripNo.toUpperCase(),
+          ],
         },
-        {
-          projection: {
-            _id: 0,
-            RequestID: 1,
-            ActivityID: 1,
-            VendorID: 1,
+      };
 
-            // ✅ requested fields
-            actRequestRefNo: 1,
-            actRequestDate: 1,
-            actRequestTime: 1,
-            actRequestMessage: 1,
-            actTotalNoStudents: 1,
-            PaymentDueDate: 1,
-            ProposalMessage: 1,
-            SchoolTerms: 1,
-          },
-        }
-      );
+      // ✅ OPTIONAL FILTER: apply only if actRequestStatus comes in req.body
+      if (actRequestStatus) {
+        tripQuery.actRequestStatus = actRequestStatus;
+      }
+
+      const tripRow = await actReqCol.findOne(tripQuery, {
+        projection: {
+          _id: 0,
+          RequestID: 1,
+          ActivityID: 1,
+          VendorID: 1,
+
+          // ✅ requested fields
+          actRequestRefNo: 1,
+          actRequestDate: 1,
+          actRequestTime: 1,
+          actRequestMessage: 1,
+          actTotalNoStudents: 1,
+          PaymentDueDate: 1,
+          ProposalMessage: 1,
+          SchoolTerms: 1,
+        },
+      });
 
       if (!tripRow) {
         return res.status(404).json({
@@ -675,23 +687,30 @@ exports.getalltriplist = async (req, res, next) => {
       // ============================================================
       if (RequestID) {
         const actReqCol = db.collection("tblactivityrequest");
-        const reqRow = await actReqCol.findOne(
-          { RequestID: String(RequestID).trim() },
-          {
-            projection: {
-              _id: 0,
-              RequestID: 1, // ✅ include
-              actRequestRefNo: 1,
-              actRequestDate: 1,
-              actRequestTime: 1,
-              actRequestMessage: 1,
-              actTotalNoStudents: 1,
-              PaymentDueDate: 1,
-              ProposalMessage: 1,
-              SchoolTerms: 1,
-            },
-          }
-        );
+
+        const reqQuery = {
+          RequestID: String(RequestID).trim(),
+        };
+
+        // ✅ OPTIONAL FILTER: apply only if actRequestStatus comes in req.body
+        if (actRequestStatus) {
+          reqQuery.actRequestStatus = actRequestStatus;
+        }
+
+        const reqRow = await actReqCol.findOne(reqQuery, {
+          projection: {
+            _id: 0,
+            RequestID: 1, // ✅ include
+            actRequestRefNo: 1,
+            actRequestDate: 1,
+            actRequestTime: 1,
+            actRequestMessage: 1,
+            actTotalNoStudents: 1,
+            PaymentDueDate: 1,
+            ProposalMessage: 1,
+            SchoolTerms: 1,
+          },
+        });
 
         if (reqRow) {
           // ✅ ensure RequestID is returned/displayed even in this path
