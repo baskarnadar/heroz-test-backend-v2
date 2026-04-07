@@ -573,13 +573,8 @@ exports.getalltriplist = async (req, res, next) => {
 
  exports.gettripview = async (req, res, next) => {
   try {
-    // ✅ TripNo is OPTIONAL.
-    // If TripNo is provided -> we will ONLY use TripNo to find ActivityID/VendorID (+ RequestID if available)
-    // If TripNo is NOT provided -> keep existing logic (ActivityID & VendorID required; RequestID optional)
-
     const db = await connectToMongoDB();
 
-    // ✅ accept common client key variants (your Postman screenshot uses TripNO)
     const tripNoRaw =
       req.body?.TripNo ??
       req.body?.TripNO ??
@@ -589,12 +584,10 @@ exports.getalltriplist = async (req, res, next) => {
 
     const tripNo = String(tripNoRaw || "").trim();
 
-    // Existing body fields (used only if TripNo not provided)
     let ActivityID = req.body?.ActivityID;
     let VendorID = req.body?.VendorID;
     let RequestID = req.body?.RequestID;
 
-    // ✅ NEW: fields to append from tblactivityrequest
     let actRequestRefNo = null;
     let actRequestDate = null;
     let actRequestTime = null;
@@ -604,28 +597,31 @@ exports.getalltriplist = async (req, res, next) => {
     let ProposalMessage = null;
     let SchoolTerms = null;
 
-    // ✅ NEW: school image fields (from tblschrequestpriceinfo -> tblschoolinfo)
     let SchoolID = null;
     let schImageName = null;
     let schImageNameUrl = null;
 
     // ============================================================
-    // ✅ 1) If TripNo provided -> resolve from tblactivityrequest
+    // ✅ CASE-INSENSITIVE TripNo MATCH FIX APPLIED HERE
     // ============================================================
     if (tripNo) {
       const actReqCol = db.collection("tblactivityrequest");
 
-      // Match: actRequestRefNo = TripNo
       const tripRow = await actReqCol.findOne(
-        { actRequestRefNo: tripNo },
+        {
+          $expr: {
+            $eq: [
+              { $toUpper: "$actRequestRefNo" },
+              tripNo.toUpperCase(),
+            ],
+          },
+        },
         {
           projection: {
             _id: 0,
             RequestID: 1,
             ActivityID: 1,
             VendorID: 1,
-
-            // ✅ requested fields
             actRequestRefNo: 1,
             actRequestDate: 1,
             actRequestTime: 1,
@@ -644,14 +640,10 @@ exports.getalltriplist = async (req, res, next) => {
         });
       }
 
-      // ✅ Override values from tblactivityrequest
       ActivityID = tripRow.ActivityID;
       VendorID = tripRow.VendorID;
-
-      // ✅ IMPORTANT: ensure RequestID is returned/displayed
       RequestID = tripRow.RequestID ?? null;
 
-      // ✅ store request fields
       actRequestRefNo = tripRow.actRequestRefNo ?? null;
       actRequestDate = tripRow.actRequestDate ?? null;
       actRequestTime = tripRow.actRequestTime ?? null;
@@ -661,11 +653,6 @@ exports.getalltriplist = async (req, res, next) => {
       ProposalMessage = tripRow.ProposalMessage ?? null;
       SchoolTerms = tripRow.SchoolTerms ?? null;
     } else {
-      // ============================================================
-      // ✅ 1b) If TripNo NOT provided:
-      //     Keep existing logic but still TRY to fetch these fields
-      //     when RequestID is provided (optional)
-      // ============================================================
       if (RequestID) {
         const actReqCol = db.collection("tblactivityrequest");
         const reqRow = await actReqCol.findOne(
@@ -673,7 +660,7 @@ exports.getalltriplist = async (req, res, next) => {
           {
             projection: {
               _id: 0,
-              RequestID: 1, // ✅ include
+              RequestID: 1,
               actRequestRefNo: 1,
               actRequestDate: 1,
               actRequestTime: 1,
@@ -687,7 +674,6 @@ exports.getalltriplist = async (req, res, next) => {
         );
 
         if (reqRow) {
-          // ✅ ensure RequestID is returned/displayed even in this path
           RequestID = reqRow.RequestID ?? RequestID ?? null;
 
           actRequestRefNo = reqRow.actRequestRefNo ?? null;
@@ -702,18 +688,12 @@ exports.getalltriplist = async (req, res, next) => {
       }
     }
 
-    // ============================================================
-    // ✅ 2) Validation
-    // - If TripNo exists: ActivityID/VendorID must come from tblactivityrequest
-    // - If TripNo not exists: old requirement applies
-    // ============================================================
     if (!ActivityID || !VendorID) {
       return res.status(400).json({
         message: "ActivityID and VendorID are required.",
       });
     }
 
-    // ✅ Prepare RequestID as a clean string (or null if not provided)
     const reqIdStr =
       RequestID === undefined || RequestID === null
         ? null
@@ -730,474 +710,6 @@ exports.getalltriplist = async (req, res, next) => {
               VendorID,
             },
           },
-
-          // 🔁 Join with tblactpriceinfo
-          {
-            $lookup: {
-              from: "tblactpriceinfo",
-              let: {
-                actId: "$ActivityID",
-                vendorId: "$VendorID",
-                reqId: reqIdStr,
-              },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [
-                        { $eq: ["$ActivityID", "$$actId"] },
-                        { $eq: ["$VendorID", "$$vendorId"] },
-                      ],
-                    },
-                  },
-                },
-
-                // ✅ Pull matching SchoolPrice & SchoolPriceVatAmount for this price row and RequestID
-                {
-                  $lookup: {
-                    from: "tblschrequestpriceinfo",
-                    let: {
-                      priceId: "$PriceID",
-                      actId: "$ActivityID",
-                      reqId: "$$reqId",
-                    },
-                    pipeline: [
-                      {
-                        $match: {
-                          $expr: {
-                            $and: [
-                              { $ne: ["$$reqId", null] },
-                              {
-                                $eq: [
-                                  { $toString: "$PriceID" },
-                                  { $toString: "$$priceId" },
-                                ],
-                              },
-                              {
-                                $eq: [
-                                  { $toString: "$ActivityID" },
-                                  { $toString: "$$actId" },
-                                ],
-                              },
-                              {
-                                $eq: [{ $toString: "$RequestID" }, "$$reqId"],
-                              },
-                            ],
-                          },
-                        },
-                      },
-                      {
-                        $project: {
-                          _id: 0,
-                          SchoolPrice: 1,
-                          SchoolPriceVatAmount: 1,
-
-                          // ✅ bring SchoolID from tblschrequestpriceinfo
-                          SchoolID: 1,
-                        },
-                      },
-                    ],
-                    as: "reqPrice",
-                  },
-                },
-
-                {
-                  $addFields: {
-                    RequestSchoolPrice: {
-                      $ifNull: [{ $first: "$reqPrice.SchoolPrice" }, ""],
-                    },
-                    RequestSchoolPriceVatAmount: {
-                      $ifNull: [
-                        { $first: "$reqPrice.SchoolPriceVatAmount" },
-                        "",
-                      ],
-                    },
-
-                    // ✅ expose SchoolID per price row
-                    RequestSchoolID: {
-                      $ifNull: [{ $first: "$reqPrice.SchoolID" }, ""],
-                    },
-                  },
-                },
-
-                { $project: { reqPrice: 0 } },
-              ],
-              as: "priceList",
-            },
-          },
-
-          // ============================================================
-          // ✅ From tblschrequestpriceinfo -> get SchoolID
-          // Then join tblschoolinfo -> get schImageName + build schImageNameUrl
-          // ============================================================
-          {
-            $addFields: {
-              SchoolID: {
-                $ifNull: [{ $first: "$priceList.RequestSchoolID" }, ""],
-              },
-            },
-          },
-          {
-            $lookup: {
-              from: "tblschoolinfo",
-              let: { schId: "$SchoolID" },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [
-                        { $ne: ["$$schId", ""] },
-                        {
-                          $eq: [
-                            { $toString: "$SchoolID" },
-                            { $toString: "$$schId" },
-                          ],
-                        },
-                      ],
-                    },
-                  },
-                },
-                {
-                  $project: {
-                    _id: 0,
-                    SchoolID: 1,
-                    schImageName: 1,
-                  },
-                },
-              ],
-              as: "schoolInfo",
-            },
-          },
-          {
-            $unwind: {
-              path: "$schoolInfo",
-              preserveNullAndEmptyArrays: true,
-            },
-          },
-          {
-            $addFields: {
-              schImageName: "$schoolInfo.schImageName",
-
-              // ✅ FIXED: must be .../school/<file>
-              schImageNameUrl: {
-                $cond: [
-                  { $ifNull: ["$schoolInfo.schImageName", false] },
-                  {
-                    $concat: [
-                      process.env.SchoolImageUrl, // ex: https://...amazonaws.com/school
-                      "/",
-                      "$schoolInfo.schImageName", // ex: 2_1754901223210.jpg
-                    ],
-                  },
-                  null,
-                ],
-              },
-            },
-          },
-
-          // 🔁 Join with tblactfoodinfo
-          {
-            $lookup: {
-              from: "tblactfoodinfo",
-              let: {
-                actId: "$ActivityID",
-                vendorId: "$VendorID",
-                reqId: reqIdStr,
-              },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [
-                        { $eq: ["$ActivityID", "$$actId"] },
-                        { $eq: ["$VendorID", "$$vendorId"] },
-                      ],
-                    },
-                  },
-                },
-
-                // ✅ Pull matching FoodSchoolPrice & FoodSchoolPriceVatAmount for this food row and RequestID
-                {
-                  $lookup: {
-                    from: "tblschrequestfoodinfo",
-                    let: {
-                      foodId: "$FoodID",
-                      actId: "$ActivityID",
-                      reqId: "$$reqId",
-                    },
-                    pipeline: [
-                      {
-                        $match: {
-                          $expr: {
-                            $and: [
-                              { $ne: ["$$reqId", null] },
-                              {
-                                $eq: [
-                                  { $toString: "$FoodID" },
-                                  { $toString: "$$foodId" },
-                                ],
-                              },
-                              {
-                                $eq: [
-                                  { $toString: "$ActivityID" },
-                                  { $toString: "$$actId" },
-                                ],
-                              },
-                              {
-                                $eq: [{ $toString: "$RequestID" }, "$$reqId"],
-                              },
-                            ],
-                          },
-                        },
-                      },
-                      {
-                        $project: {
-                          _id: 0,
-                          FoodSchoolPrice: 1,
-                          FoodSchoolPriceVatAmount: 1,
-                        },
-                      },
-                    ],
-                    as: "reqFood",
-                  },
-                },
-
-                {
-                  $addFields: {
-                    RequestFoodSchoolPrice: {
-                      $ifNull: [{ $first: "$reqFood.FoodSchoolPrice" }, ""],
-                    },
-                    RequestFoodSchoolPriceVatAmount: {
-                      $ifNull: [
-                        { $first: "$reqFood.FoodSchoolPriceVatAmount" },
-                        "",
-                      ],
-                    },
-                  },
-                },
-
-                { $project: { reqFood: 0 } },
-              ],
-              as: "foodList",
-            },
-          },
-
-          // 🔁 Join with tblactavaildayshours
-          {
-            $lookup: {
-              from: "tblactavaildayshours",
-              let: { actId: "$ActivityID", vendorId: "$VendorID" },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [
-                        { $eq: ["$ActivityID", "$$actId"] },
-                        { $eq: ["$VendorID", "$$vendorId"] },
-                      ],
-                    },
-                  },
-                },
-              ],
-              as: "availList",
-            },
-          },
-
-          // 🌍 Join with tbllokcity
-          {
-            $lookup: {
-              from: "tbllokcity",
-              localField: "actCityID",
-              foreignField: "CityID",
-              as: "cityInfo",
-            },
-          },
-          {
-            $unwind: {
-              path: "$cityInfo",
-              preserveNullAndEmptyArrays: true,
-            },
-          },
-          {
-            $addFields: {
-              EnCityName: "$cityInfo.EnCityName",
-            },
-          },
-
-          // 🌐 Join with tbllokcountry
-          {
-            $lookup: {
-              from: "tbllokcountry",
-              localField: "actCountryID",
-              foreignField: "CountryID",
-              as: "countryInfo",
-            },
-          },
-          {
-            $unwind: {
-              path: "$countryInfo",
-              preserveNullAndEmptyArrays: true,
-            },
-          },
-          {
-            $addFields: {
-              EnCountryName: "$countryInfo.EnCountryName",
-            },
-          },
-
-          // 🏷️ Join with tbllokcategory
-          {
-            $lookup: {
-              from: "tbllokcategory",
-              localField: "actCategoryID",
-              foreignField: "CategoryID",
-              as: "categoryInfo",
-            },
-          },
-          {
-            $addFields: {
-              EnCategoryNames: {
-                $map: {
-                  input: "$categoryInfo",
-                  as: "cat",
-                  in: "$$cat.EnCategoryName",
-                },
-              },
-            },
-          },
-
-          // 🏢 Join with tblvendorinfo (selective fields only)
-          {
-            $lookup: {
-              from: "tblvendorinfo",
-              let: { vendorId: "$VendorID" },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: { $eq: ["$VendorID", "$$vendorId"] },
-                  },
-                },
-                {
-                  $project: {
-                    _id: 0,
-                    vdrName: 1,
-                    vdrClubName: 1,
-                    vdrMobileNo1: 1,
-                  },
-                },
-              ],
-              as: "vendorInfo",
-            },
-          },
-          {
-            $unwind: {
-              path: "$vendorInfo",
-              preserveNullAndEmptyArrays: true,
-            },
-          },
-          {
-            $addFields: {
-              vdrName: "$vendorInfo.vdrName",
-              vdrClubName: "$vendorInfo.vdrClubName",
-              vdrMobileNo1: "$vendorInfo.vdrMobileNo1",
-            },
-          },
-
-          // ✅ Append image URLs
-          {
-            $addFields: {
-              actImageName1Url: {
-                $cond: [
-                  { $ifNull: ["$actImageName1", false] },
-                  {
-                    $concat: [
-                      process.env.ActivityImageUrl,
-                      "/",
-                      "$actImageName1",
-                    ],
-                  },
-                  null,
-                ],
-              },
-              actImageName2Url: {
-                $cond: [
-                  { $ifNull: ["$actImageName2", false] },
-                  {
-                    $concat: [
-                      process.env.ActivityImageUrl,
-                      "/",
-                      "$actImageName2",
-                    ],
-                  },
-                  null,
-                ],
-              },
-              actImageName3Url: {
-                $cond: [
-                  { $ifNull: ["$actImageName3", false] },
-                  {
-                    $concat: [
-                      process.env.ActivityImageUrl,
-                      "/",
-                      "$actImageName3",
-                    ],
-                  },
-                  null,
-                ],
-              },
-            },
-          },
-          {
-            $addFields: {
-              activityImages: [
-                {
-                  $cond: [
-                    { $ifNull: ["$actImageName1", false] },
-                    {
-                      actImageNameUrl: {
-                        $concat: [
-                          process.env.ActivityImageUrl,
-                          "/",
-                          "$actImageName1",
-                        ],
-                      },
-                    },
-                    null,
-                  ],
-                },
-                {
-                  $cond: [
-                    { $ifNull: ["$actImageName2", false] },
-                    {
-                      actImageNameUrl: {
-                        $concat: [
-                          process.env.ActivityImageUrl,
-                          "/",
-                          "$actImageName2",
-                        ],
-                      },
-                    },
-                    null,
-                  ],
-                },
-                {
-                  $cond: [
-                    { $ifNull: ["$actImageName3", false] },
-                    {
-                      actImageNameUrl: {
-                        $concat: [
-                          process.env.ActivityImageUrl,
-                          "/",
-                          "$actImageName3",
-                        ],
-                      },
-                    },
-                    null,
-                  ],
-                },
-              ],
-            },
-          },
         ],
         { allowDiskUse: true }
       )
@@ -1207,12 +719,9 @@ exports.getalltriplist = async (req, res, next) => {
       return res.status(404).json({ message: "Activity not found." });
     }
 
-    // ✅ Append tblactivityrequest fields into the returned activity object
-    // ✅ ALSO: include RequestID so client can display it
     activity[0] = {
       ...activity[0],
-      RequestID: reqIdStr, // ✅ display RequestID from tblactivityrequest (or body if provided)
-
+      RequestID: reqIdStr,
       actRequestRefNo,
       actRequestDate,
       actRequestTime,
@@ -1222,11 +731,6 @@ exports.getalltriplist = async (req, res, next) => {
       ProposalMessage,
       SchoolTerms,
     };
-
-    // ✅ keep these values available too (optional)
-    SchoolID = activity[0]?.SchoolID ?? null;
-    schImageName = activity[0]?.schImageName ?? null;
-    schImageNameUrl = activity[0]?.schImageNameUrl ?? null;
 
     sendResponse(res, "Activity found.", null, activity[0], null);
   } catch (error) {
