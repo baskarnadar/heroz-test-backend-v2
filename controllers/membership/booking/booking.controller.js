@@ -1512,7 +1512,11 @@ exports.vdrupdateBookingStatus = async (req, res, next) => {
       .toArray()
 
     // =========================================================
-    // ✅ Filter
+    // ✅ Filter — EXACT date + time match only
+    // ✅ FIX: was (dbDateObj >= requestDateObj) which incorrectly matched
+    //         bookings on future dates (e.g. Apr 26) as conflicts when
+    //         searching for a different date (e.g. Apr 19).
+    //         Now uses getTime() === getTime() for exact date match only.
     // =========================================================
     const KidsBookedAlread = []
 
@@ -1520,7 +1524,8 @@ exports.vdrupdateBookingStatus = async (req, res, next) => {
       const dbDateObj = parseDateValue(booking?.BookingActivityDate)
       if (!dbDateObj) continue
 
-      if (dbDateObj >= requestDateObj) {
+      // ✅ FIX: exact date match only
+      if (dbDateObj.getTime() === requestDateObj.getTime()) {
         const bookingKids = Array.isArray(booking?.BookingKidsID)
           ? booking.BookingKidsID.map((item) => String(item ?? "").trim()).filter((item) => item)
           : [String(booking?.BookingKidsID ?? "").trim()].filter((item) => item)
@@ -1550,7 +1555,7 @@ exports.vdrupdateBookingStatus = async (req, res, next) => {
     )
 
     // =========================================================
-    // ✅ NEW FIELD: isDuplicateBookingExist
+    // ✅ isDuplicateBookingExist
     // =========================================================
     const isDuplicateBookingExist =
       uniqueKidsBookedAlread.length > 0 ? "YES" : "NO"
