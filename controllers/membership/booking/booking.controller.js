@@ -1412,7 +1412,7 @@ exports.vdrupdateBookingStatus = async (req, res, next) => {
   }
 }
 
-exports.isKidsBookedSameDateTIme = async (req, res, next) => {
+ exports.isKidsBookedSameDateTIme = async (req, res, next) => {
   try {
     // =========================================================
     // ✅ Get Required Fields
@@ -1456,11 +1456,6 @@ exports.isKidsBookedSameDateTIme = async (req, res, next) => {
 
     // =========================================================
     // ✅ Date Parser
-    // Supports:
-    //  - YYYY-MM-DD
-    //  - YYYY/MM/DD
-    //  - DD-MM-YYYY
-    //  - DD/MM/YYYY
     // =========================================================
     const parseDateValue = (value) => {
       const str = String(value ?? "").trim()
@@ -1499,8 +1494,6 @@ exports.isKidsBookedSameDateTIme = async (req, res, next) => {
 
     // =========================================================
     // ✅ Find candidate bookings
-    // - Same time
-    // - Same kids (one or more)
     // =========================================================
     const candidateBookings = await collection
       .find({
@@ -1519,9 +1512,7 @@ exports.isKidsBookedSameDateTIme = async (req, res, next) => {
       .toArray()
 
     // =========================================================
-    // ✅ Filter:
-    // BookingActivityDate >= req.body.BookingActivityDate
-    // and return same kid conflicts only
+    // ✅ Filter
     // =========================================================
     const KidsBookedAlread = []
 
@@ -1547,7 +1538,7 @@ exports.isKidsBookedSameDateTIme = async (req, res, next) => {
     }
 
     // =========================================================
-    // ✅ Remove duplicate records
+    // ✅ Remove duplicates
     // =========================================================
     const uniqueKidsBookedAlread = Array.from(
       new Map(
@@ -1559,10 +1550,17 @@ exports.isKidsBookedSameDateTIme = async (req, res, next) => {
     )
 
     // =========================================================
+    // ✅ NEW FIELD: isDuplicateBookingExist
+    // =========================================================
+    const isDuplicateBookingExist =
+      uniqueKidsBookedAlread.length > 0 ? "YES" : "NO"
+
+    // =========================================================
     // ✅ Response
     // =========================================================
     return res.status(200).json({
       statusCode: 200,
+      isDuplicateBookingExist: isDuplicateBookingExist,
       message:
         uniqueKidsBookedAlread.length > 0
           ? "Some kids already have activity booked for same date/time."
