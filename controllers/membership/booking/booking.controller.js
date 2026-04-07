@@ -1411,3 +1411,166 @@ exports.vdrupdateBookingStatus = async (req, res, next) => {
     next(error)
   }
 }
+
+exports.isKidsBookedSameDateTIme = async (req, res, next) => {
+  try {
+    // =========================================================
+    // ✅ Get Required Fields
+    // =========================================================
+    const bookingKidsRaw = req.body?.BookingKidsID
+    const BookingActivityDate = String(req.body?.BookingActivityDate ?? "").trim()
+    const BookingActivityTime = String(req.body?.BookingActivityTime ?? "").trim()
+
+    // =========================================================
+    // ✅ Normalize BookingKidsID (supports array / comma string / single value)
+    // =========================================================
+    let BookingKidsID = []
+
+    if (Array.isArray(bookingKidsRaw)) {
+      BookingKidsID = bookingKidsRaw
+        .map((item) => String(item ?? "").trim())
+        .filter((item) => item)
+    } else if (typeof bookingKidsRaw === "string") {
+      BookingKidsID = bookingKidsRaw
+        .split(",")
+        .map((item) => String(item ?? "").trim())
+        .filter((item) => item)
+    } else if (bookingKidsRaw !== undefined && bookingKidsRaw !== null) {
+      BookingKidsID = [String(bookingKidsRaw).trim()].filter((item) => item)
+    }
+
+    // =========================================================
+    // ✅ Validate Required Fields
+    // =========================================================
+    if (!BookingKidsID.length) {
+      return sendResponse(res, "BookingKidsID is required.", true, null, 0)
+    }
+
+    if (!BookingActivityDate) {
+      return sendResponse(res, "BookingActivityDate is required.", true, null, 0)
+    }
+
+    if (!BookingActivityTime) {
+      return sendResponse(res, "BookingActivityTime is required.", true, null, 0)
+    }
+
+    // =========================================================
+    // ✅ Date Parser
+    // Supports:
+    //  - YYYY-MM-DD
+    //  - YYYY/MM/DD
+    //  - DD-MM-YYYY
+    //  - DD/MM/YYYY
+    // =========================================================
+    const parseDateValue = (value) => {
+      const str = String(value ?? "").trim()
+      if (!str) return null
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str) || /^\d{4}\/\d{2}\/\d{2}$/.test(str)) {
+        const normalized = str.replace(/\//g, "-")
+        const dt = new Date(`${normalized}T00:00:00`)
+        return isNaN(dt.getTime()) ? null : dt
+      }
+
+      if (/^\d{2}-\d{2}-\d{4}$/.test(str) || /^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+        const parts = str.replace(/\//g, "-").split("-")
+        const day = parts[0]
+        const month = parts[1]
+        const year = parts[2]
+        const dt = new Date(`${year}-${month}-${day}T00:00:00`)
+        return isNaN(dt.getTime()) ? null : dt
+      }
+
+      const dt = new Date(str)
+      return isNaN(dt.getTime()) ? null : dt
+    }
+
+    const requestDateObj = parseDateValue(BookingActivityDate)
+
+    if (!requestDateObj) {
+      return sendResponse(res, "Invalid BookingActivityDate format.", true, null, 0)
+    }
+
+    // =========================================================
+    // ✅ DB Connection
+    // =========================================================
+    const db = await connectToMongoDB()
+    const collection = db.collection("tblMemShipBookingInfo")
+
+    // =========================================================
+    // ✅ Find candidate bookings
+    // - Same time
+    // - Same kids (one or more)
+    // =========================================================
+    const candidateBookings = await collection
+      .find({
+        BookingActivityTime: BookingActivityTime,
+        $or: [
+          { BookingKidsID: { $in: BookingKidsID } },
+          { BookingKidsID: { $elemMatch: { $in: BookingKidsID } } },
+        ],
+      })
+      .project({
+        _id: 0,
+        BookingKidsID: 1,
+        BookingActivityDate: 1,
+        BookingActivityTime: 1,
+      })
+      .toArray()
+
+    // =========================================================
+    // ✅ Filter:
+    // BookingActivityDate >= req.body.BookingActivityDate
+    // and return same kid conflicts only
+    // =========================================================
+    const KidsBookedAlread = []
+
+    for (const booking of candidateBookings) {
+      const dbDateObj = parseDateValue(booking?.BookingActivityDate)
+      if (!dbDateObj) continue
+
+      if (dbDateObj >= requestDateObj) {
+        const bookingKids = Array.isArray(booking?.BookingKidsID)
+          ? booking.BookingKidsID.map((item) => String(item ?? "").trim()).filter((item) => item)
+          : [String(booking?.BookingKidsID ?? "").trim()].filter((item) => item)
+
+        for (const kidId of BookingKidsID) {
+          if (bookingKids.includes(kidId)) {
+            KidsBookedAlread.push({
+              KidsID: kidId,
+              BookingActivityDate: booking.BookingActivityDate ?? "",
+              BookingActivityTime: booking.BookingActivityTime ?? "",
+            })
+          }
+        }
+      }
+    }
+
+    // =========================================================
+    // ✅ Remove duplicate records
+    // =========================================================
+    const uniqueKidsBookedAlread = Array.from(
+      new Map(
+        KidsBookedAlread.map((item) => [
+          `${item.KidsID}__${item.BookingActivityDate}__${item.BookingActivityTime}`,
+          item,
+        ])
+      ).values()
+    )
+
+    // =========================================================
+    // ✅ Response
+    // =========================================================
+    return res.status(200).json({
+      statusCode: 200,
+      message:
+        uniqueKidsBookedAlread.length > 0
+          ? "Some kids already have activity booked for same date/time."
+          : "No same date/time booking found for given kids.",
+      KidsBookedAlread: uniqueKidsBookedAlread,
+    })
+  } catch (error) {
+    console.error("Error in isKidsBookedSameDateTIme:", error)
+    next(error)
+  }
+}

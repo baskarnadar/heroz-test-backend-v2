@@ -12,6 +12,7 @@ router.post("/vdrgetbookingSummary",protectAPI, booking.vdrgetbookingSummary);
 router.post("/vdrgetbookingSummaryList",booking.vdrgetbookingSummaryList);
 router.post("/vdrgetOneBookingOnly",booking.vdrgetOneBookingOnly);
  router.post("/vdrupdateBookingStatus",protectAPI,booking.vdrupdateBookingStatus);
+ router.post("/isKidsBookedSameDateTIme",protectAPI,booking.isKidsBookedSameDateTIme);
 module.exports = router;
  
 
