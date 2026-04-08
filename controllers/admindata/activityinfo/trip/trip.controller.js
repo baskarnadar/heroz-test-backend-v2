@@ -887,6 +887,7 @@ exports.getalltriplist = async (req, res, next) => {
                   $project: {
                     _id: 0,
                     SchoolID: 1,
+                    schName: 1,
                     schImageName: 1,
                   },
                 },
