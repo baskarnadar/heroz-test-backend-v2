@@ -3177,3 +3177,121 @@ exports.PosDeleteKids = async (req, res) => {
     next(err);
   }
 };
+
+ 
+
+exports.IsDuplicateSchoolTripBooking = async (req, res, next) => {
+  try {
+    const db = await connectToMongoDB();
+
+    const toStr = (v) => (v === undefined || v === null ? "" : String(v).trim());
+
+    const RequestID = toStr(req.body?.RequestID);
+    const KidsID = toStr(req.body?.KidsID);
+
+    // =========================================================
+    // ✅ Validation
+    // =========================================================
+    if (!RequestID || !KidsID) {
+      return res.status(200).json({
+        status: "error",
+        message: "RequestID and KidsID are required.",
+        IsDuplicateSchoolTripBooking: "NO",
+        data: [],
+      });
+    }
+
+    // =========================================================
+    // ✅ Support both string ID and ObjectId matching
+    // =========================================================
+    const requestMatch = [RequestID];
+    const kidsMatch = [KidsID];
+
+    if (/^[a-fA-F0-9]{24}$/.test(RequestID)) {
+      try {
+        requestMatch.push(new ObjectId(RequestID));
+      } catch {}
+    }
+
+    if (/^[a-fA-F0-9]{24}$/.test(KidsID)) {
+      try {
+        kidsMatch.push(new ObjectId(KidsID));
+      } catch {}
+    }
+
+    // =========================================================
+    // ✅ Find approved payment rows
+    // =========================================================
+    const pipeline = [
+      {
+        $match: {
+          RequestID: { $in: requestMatch },
+          KidsID: { $in: kidsMatch },
+          PayStatus: "APPROVED",
+        },
+      },
+      {
+        $lookup: {
+          from: "tblMemKidsInfo",
+          let: { kidsId: "$KidsID" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $eq: ["$KidsID", "$$kidsId"] },
+                    {
+                      $and: [
+                        { $eq: [{ $type: "$$kidsId" }, "objectId"] },
+                        { $eq: ["$_id", "$$kidsId"] },
+                      ],
+                    },
+                    {
+                      $and: [
+                        { $eq: [{ $type: "$KidsID" }, "objectId"] },
+                        { $eq: ["$_id", "$KidsID"] },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                KidsID: 1,
+                KidsName: 1,
+              },
+            },
+          ],
+          as: "kidsInfo",
+        },
+      },
+      {
+        $addFields: {
+          KidsName: { $ifNull: [{ $arrayElemAt: ["$kidsInfo.KidsName", 0] }, ""] },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          RequestID: 1,
+          KidsID: 1,
+          PayStatus: 1,
+          KidsName: 1,
+        },
+      },
+    ];
+
+    const rows = await db.collection("tblBookTripPayInfo").aggregate(pipeline).toArray();
+
+    return res.status(200).json({
+      status: "success",
+      IsDuplicateSchoolTripBooking: rows.length > 0 ? "YES" : "NO",
+      data: rows,
+    });
+  } catch (err) {
+    console.error("Error in IsDuplicateSchoolTripBooking:", err?.message || err);
+    next(err);
+  }
+};
