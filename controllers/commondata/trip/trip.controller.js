@@ -2698,3 +2698,482 @@ exports.PosDeleteKids = async (req, res) => {
     });
   }
 };
+
+
+ exports.gettripviewByParentsID = async (req, res, next) => {
+  try {
+    const db = await connectToMongoDB();
+    const { prtuserid } = req.body || {};
+
+    const toArray = (v) =>
+      Array.isArray(v)
+        ? v.filter((x) => x !== undefined && x !== null && `${x}`.trim() !== "").map((x) => `${x}`.trim())
+        : typeof v === "string"
+        ? v.split(",").map((s) => s.trim()).filter((s) => s.length)
+        : v != null
+        ? [`${v}`.trim()]
+        : [];
+
+    const withObjectIds = (arr) => {
+      const out = [];
+      for (const s of arr) {
+        out.push(s);
+        if (/^[a-fA-F0-9]{24}$/.test(s)) {
+          try { out.push(new ObjectId(s)); } catch {}
+        }
+      }
+      return out;
+    };
+
+    const parentIds = withObjectIds(toArray(prtuserid));
+
+    if (!parentIds.length) {
+      return res.status(400).json({ status: "error", message: "prtuserid is required." });
+    }
+
+    const statusSet = [
+      "TRIP-BOOKED", "COMPLETED", "WAITING-FOR-APPROVAL",
+      "APPROVED", "REJECTED", "PENDING",
+    ];
+
+    // =========================================================
+    // STEP 1: Get parent info + RequestIDs from tblBookTripParentsInfo
+    // =========================================================
+    const parentRows = await db
+      .collection("tblBookTripParentsInfo")
+      .find({
+        $or: [
+          { ParentsID: { $in: parentIds } },
+          { ParentID: { $in: parentIds } },
+        ],
+      })
+      .project({
+        _id: 0,
+        RequestID: 1,
+        ParentsID: 1,
+        ParentID: 1,
+        tripParentsName: 1,
+        tripParentsMobileNo: 1,
+        tripParentsNote: 1,
+      })
+      .toArray();
+
+    if (!parentRows.length) {
+      return res.status(200).json({ status: "success", parentsInfo: null, trips: [] });
+    }
+
+    // =========================================================
+    // STEP 2: Single parentsInfo block
+    // =========================================================
+    const firstParent = parentRows[0];
+    const parentsInfo = {
+      ParentsID: firstParent.ParentsID || firstParent.ParentID,
+      tripParentsName: firstParent.tripParentsName,
+      tripParentsMobileNo: firstParent.tripParentsMobileNo,
+      tripParentsNote: firstParent.tripParentsNote,
+    };
+
+    // =========================================================
+    // STEP 3: Unique RequestIDs
+    // =========================================================
+    const requestIdsRaw = [
+      ...new Set(
+        parentRows
+          .map((r) => r.RequestID)
+          .filter((x) => x !== undefined && x !== null && `${x}`.trim() !== "")
+          .map((x) => `${x}`.trim())
+      ),
+    ];
+
+    const requestIds = withObjectIds(requestIdsRaw);
+
+    if (!requestIds.length) {
+      return res.status(200).json({ status: "success", parentsInfo, trips: [] });
+    }
+
+    // =========================================================
+    // STEP 4: Main aggregation pipeline
+    // =========================================================
+    const pipeline = [
+      {
+        $match: {
+          RequestID: { $in: requestIds },
+          actRequestStatus: { $in: statusSet },
+        },
+      },
+
+      // Activity name
+      {
+        $lookup: {
+          from: "tblactivityinfo",
+          localField: "ActivityID",
+          foreignField: "ActivityID",
+          pipeline: [{ $project: { _id: 0, actName: 1 } }],
+          as: "activity",
+        },
+      },
+      { $addFields: { actName: { $arrayElemAt: ["$activity.actName", 0] } } },
+
+      // Vendor name
+      {
+        $lookup: {
+          from: "tblvendorinfo",
+          localField: "VendorID",
+          foreignField: "VendorID",
+          pipeline: [{ $project: { _id: 0, vdrName: 1 } }],
+          as: "vendor",
+        },
+      },
+      { $addFields: { vdrName: { $arrayElemAt: ["$vendor.vdrName", 0] } } },
+
+      // School name
+      {
+        $lookup: {
+          from: "tblschoolinfo",
+          localField: "SchoolID",
+          foreignField: "SchoolID",
+          pipeline: [{ $project: { _id: 0, schName: 1 } }],
+          as: "school",
+        },
+      },
+      { $addFields: { schName: { $arrayElemAt: ["$school.schName", 0] } } },
+
+      // =========================================================
+      // STEP 5: Get ALL payments for this trip + this parent
+      // =========================================================
+      {
+        $lookup: {
+          from: "tblBookTripPayInfo",
+          let: { reqId: "$RequestID", parentIdsInput: parentIds },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    {
+                      $or: [
+                        { $eq: ["$RequestID", "$$reqId"] },
+                        { $eq: ["$requestID", "$$reqId"] },
+                        { $eq: ["$reqId", "$$reqId"] },
+                        { $eq: ["$ReqID", "$$reqId"] },
+                      ],
+                    },
+                    {
+                      $or: [
+                        { $in: ["$ParentsID", "$$parentIdsInput"] },
+                        { $in: ["$ParentID", "$$parentIdsInput"] },
+                      ],
+                    },
+                    // ✅ Only APPROVED or FAILED payments
+                    { $in: ["$PayStatus", ["APPROVED", "FAILED"]] },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                KidsID: 1,
+                PayTypeID: 1,
+                tripPaymentTypeID: 1,
+                TripCost: 1,
+                TripFoodCost: 1,
+                TripTaxAmount: 1,
+                TripFullAmount: 1,
+                TripVendorCost: 1,
+                TripHerozCost: 1,
+                TripSchoolPrice: 1,
+                CreatedDate: 1,
+                PayDate: 1,
+                PayStatus: 1,
+                MyFatrooahRefNo: 1,
+              },
+            },
+          ],
+          as: "paymentsFiltered",
+        },
+      },
+
+      // =========================================================
+      // STEP 6: Extract unique KidsIDs from APPROVED/FAILED payments
+      // =========================================================
+      {
+        $addFields: {
+          _qualifiedKidsIds: {
+            $setUnion: [
+              {
+                $map: {
+                  input: "$paymentsFiltered",
+                  as: "p",
+                  in: "$$p.KidsID",
+                },
+              },
+              [],
+            ],
+          },
+        },
+      },
+
+      // =========================================================
+      // STEP 7: Get kids info — only qualified KidsIDs
+      // =========================================================
+      {
+        $lookup: {
+          from: "tblBookTripKidsInfo",
+          let: {
+            reqId: "$RequestID",
+            parentIdsInput: parentIds,
+            qualifiedKidsIds: "$_qualifiedKidsIds",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$RequestID", "$$reqId"] },
+                    {
+                      $or: [
+                        { $in: ["$ParentsID", "$$parentIdsInput"] },
+                        { $in: ["$ParentID", "$$parentIdsInput"] },
+                      ],
+                    },
+                    // Only kids in APPROVED/FAILED payment KidsIDs
+                    { $in: ["$KidsID", "$$qualifiedKidsIds"] },
+                  ],
+                },
+              },
+            },
+            // Deduplicate by KidsID — keep only first record per KidsID
+            {
+              $group: {
+                _id: "$KidsID",
+                KidsID: { $first: "$KidsID" },
+                TripKidsSchoolNo: { $first: "$TripKidsSchoolNo" },
+                TripKidsName: { $first: "$TripKidsName" },
+                tripKidsClassName: { $first: "$tripKidsClassName" },
+                tripKidsStatus: { $first: "$tripKidsStatus" },
+                CreatedDate: { $first: "$CreatedDate" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                KidsID: 1,
+                TripKidsSchoolNo: 1,
+                TripKidsName: 1,
+                tripKidsClassName: 1,
+                tripKidsStatus: 1,
+                CreatedDate: 1,
+              },
+            },
+          ],
+          as: "kidsRaw",
+        },
+      },
+
+      // =========================================================
+      // STEP 8: Merge kid info + payment info per KidsID
+      // =========================================================
+      {
+        $addFields: {
+          KidsSummary: {
+            $map: {
+              input: "$kidsRaw",
+              as: "kid",
+              in: {
+                $mergeObjects: [
+                  "$$kid",
+                  {
+                    // Attach the latest APPROVED or FAILED payment for this kid
+                    payment: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: "$paymentsFiltered",
+                            as: "p",
+                            cond: { $eq: ["$$p.KidsID", "$$kid.KidsID"] },
+                          },
+                        },
+                        0,
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+
+      // Flatten payment fields directly into KidsSummary item
+      {
+        $addFields: {
+          KidsSummary: {
+            $map: {
+              input: "$KidsSummary",
+              as: "item",
+              in: {
+                KidsID: "$$item.KidsID",
+                TripKidsSchoolNo: "$$item.TripKidsSchoolNo",
+                TripKidsName: "$$item.TripKidsName",
+                tripKidsClassName: "$$item.tripKidsClassName",
+                tripKidsStatus: "$$item.tripKidsStatus",
+                KidsCreatedDate: "$$item.CreatedDate",
+                PayTypeID: "$$item.payment.PayTypeID",
+                tripPaymentTypeID: "$$item.payment.tripPaymentTypeID",
+                TripCost: "$$item.payment.TripCost",
+                TripFoodCost: "$$item.payment.TripFoodCost",
+                TripTaxAmount: "$$item.payment.TripTaxAmount",
+                TripFullAmount: "$$item.payment.TripFullAmount",
+                TripVendorCost: "$$item.payment.TripVendorCost",
+                TripHerozCost: "$$item.payment.TripHerozCost",
+                TripSchoolPrice: "$$item.payment.TripSchoolPrice",
+                PayDate: "$$item.payment.PayDate",
+                PayStatus: "$$item.payment.PayStatus",
+                MyFatrooahRefNo: "$$item.payment.MyFatrooahRefNo",
+              },
+            },
+          },
+        },
+      },
+
+      // =========================================================
+      // STEP 9: Food extras
+      // =========================================================
+      {
+        $lookup: {
+          from: "tblBookKidsFoodExtra",
+          let: { reqId: "$RequestID", kidsIds: "$_qualifiedKidsIds" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$RequestID", "$$reqId"] },
+                    { $in: ["$KidsID", "$$kidsIds"] },
+                  ],
+                },
+              },
+            },
+            {
+              $lookup: {
+                from: "tblactfoodinfo",
+                localField: "FoodID",
+                foreignField: "FoodID",
+                as: "foodInfo",
+              },
+            },
+            {
+              $addFields: {
+                FoodName: {
+                  $ifNull: [
+                    { $arrayElemAt: ["$foodInfo.FoodName", 0] },
+                    { $arrayElemAt: ["$foodInfo.foodName", 0] },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                FoodName: 1,
+                FoodSchoolPrice: 1,
+                FoodVendorPrice: 1,
+                FoodHerozPrice: 1,
+              },
+            },
+          ],
+          as: "foodExtras",
+        },
+      },
+
+      // =========================================================
+      // STEP 10: Student summary
+      // =========================================================
+      {
+        $addFields: {
+          studentSummary: {
+            totalKids: { $size: "$KidsSummary" },
+            totalPresent: {
+              $size: {
+                $filter: {
+                  input: "$KidsSummary",
+                  as: "k",
+                  cond: { $eq: ["$$k.tripKidsStatus", "PRESENT"] },
+                },
+              },
+            },
+            totalAbsent: {
+              $size: {
+                $filter: {
+                  input: "$KidsSummary",
+                  as: "k",
+                  cond: { $eq: ["$$k.tripKidsStatus", "ABSENT"] },
+                },
+              },
+            },
+            totalPaymentApproved: {
+              $size: {
+                $filter: {
+                  input: "$KidsSummary",
+                  as: "k",
+                  cond: { $eq: ["$$k.PayStatus", "APPROVED"] },
+                },
+              },
+            },
+            totalPaymentFailed: {
+              $size: {
+                $filter: {
+                  input: "$KidsSummary",
+                  as: "k",
+                  cond: { $eq: ["$$k.PayStatus", "FAILED"] },
+                },
+              },
+            },
+          },
+        },
+      },
+
+      // =========================================================
+      // FINAL PROJECTION
+      // =========================================================
+      {
+        $project: {
+          _id: 0,
+          RequestID: 1,
+          ActivityID: 1,
+          VendorID: 1,
+          SchoolID: 1,
+          actRequestRefNo: 1,
+          actRequestDate: 1,
+          actRequestTime: 1,
+          actRequestStatus: 1,
+          PaymentDueDate: 1,
+          actName: 1,
+          vdrName: 1,
+          schName: 1,
+          KidsSummary: 1,
+          foodExtras: 1,
+          studentSummary: 1,
+        },
+      },
+
+      { $sort: { actRequestDate: -1, actRequestTime: -1 } },
+    ];
+
+    const trips = await db
+      .collection("tblactivityrequest")
+      .aggregate(pipeline)
+      .toArray();
+
+    return res.status(200).json({
+      status: "success",
+      parentsInfo,
+      trips,
+    });
+
+  } catch (err) {
+    console.error("Error in gettripviewByParentsID:", err?.message || err);
+    next(err);
+  }
+};

@@ -25,4 +25,6 @@ router.post(  "/PosGetKidsInfoOnly",     protectAPI, tripdata.PosGetKidsInfoOnly
 router.post(  "/PosAddKidsOnly",protectAPI,  upload.single("KidsImage"),    tripdata.PosAddKidsOnly  );
 router.post(  "/PosUpdateKidsOnly", protectAPI, upload.single("KidsImage"),    tripdata.PosUpdateKidsOnly  );
 router.post(  "/PosDeleteKids", protectAPI,     tripdata.PosDeleteKids  );
+router.post(  "/gettripviewByParentsID",   protectAPI,     tripdata.gettripviewByParentsID   );
+
 module.exports = router;
