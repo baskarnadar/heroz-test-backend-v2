@@ -359,6 +359,61 @@ exports.cancelbooking = async (req, res, next) => {
         },
       },
 
+      // ✅ Payment info from tblBookTripPayInfo (ONLY APPROVED)
+      {
+        $lookup: {
+          from: "tblBookTripPayInfo",
+          let: { bookingId: "$BookingID" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    {
+                      $eq: [
+                        { $trim: { input: { $toString: "$BookingID" }, chars: " ," } },
+                        { $trim: { input: { $toString: "$$bookingId" }, chars: " ," } },
+                      ],
+                    },
+                    {
+                      $eq: [
+                        { $trim: { input: { $toString: "$PayStatus" }, chars: " ," } },
+                        "APPROVED",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            { $sort: { PayDate: -1, CreatedDate: -1, _id: -1 } },
+            {
+              $project: {
+                _id: 0,
+                PayID: 1,
+                BookingID: 1,
+                PayStatus: 1,
+                PayAmount: 1,
+                PayDate: 1,
+                PaymentRefNo: 1,
+                TransactionID: 1,
+                CreatedDate: 1,
+              },
+            },
+            { $limit: 1 },
+          ],
+          as: "PaymentInfo",
+        },
+      },
+
+      // ✅ ONLY keep bookings that have APPROVED payment
+      {
+        $match: {
+          $expr: {
+            $gt: [{ $size: "$PaymentInfo" }, 0],
+          },
+        },
+      },
+
       // ✅ Flatten objects
       {
         $addFields: {
@@ -367,6 +422,7 @@ exports.cancelbooking = async (req, res, next) => {
           ActivityInfo: { $ifNull: [{ $arrayElemAt: ["$ActivityInfo", 0] }, {}] },
           VendorInfo: { $ifNull: [{ $arrayElemAt: ["$VendorInfo", 0] }, {}] },
           ActivityRequestInfo: { $ifNull: [{ $arrayElemAt: ["$ActivityRequestInfo", 0] }, {}] },
+          PaymentInfo: { $ifNull: [{ $arrayElemAt: ["$PaymentInfo", 0] }, {}] },
         },
       },
 
@@ -470,6 +526,14 @@ exports.cancelbooking = async (req, res, next) => {
           KidsAdditionalNote: { $ifNull: ["$KidsInfo.KidsAdditionalNote", ""] },
           KidsImageName: { $ifNull: ["$KidsInfo.KidsImageName", ""] },
 
+          // ✅ Payment fields
+          PayID: { $ifNull: ["$PaymentInfo.PayID", ""] },
+          PayStatus: { $ifNull: ["$PaymentInfo.PayStatus", ""] },
+          PayAmount: { $ifNull: ["$PaymentInfo.PayAmount", ""] },
+          PayDate: { $ifNull: ["$PaymentInfo.PayDate", ""] },
+          PaymentRefNo: { $ifNull: ["$PaymentInfo.PaymentRefNo", ""] },
+          TransactionID: { $ifNull: ["$PaymentInfo.TransactionID", ""] },
+
           TotalStarForParents: "$TotalStarForParents",
           StarValue: "$StarValue",
         },
@@ -484,6 +548,7 @@ exports.cancelbooking = async (req, res, next) => {
           "ActivityInfo",
           "VendorInfo",
           "ActivityRequestInfo",
+          "PaymentInfo",
           "TotalStarValue",
         ],
       },
