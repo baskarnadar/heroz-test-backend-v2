@@ -2699,7 +2699,6 @@ exports.PosDeleteKids = async (req, res) => {
   }
 };
 
-
  exports.gettripviewByParentsID = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
@@ -2707,9 +2706,14 @@ exports.PosDeleteKids = async (req, res) => {
 
     const toArray = (v) =>
       Array.isArray(v)
-        ? v.filter((x) => x !== undefined && x !== null && `${x}`.trim() !== "").map((x) => `${x}`.trim())
+        ? v
+            .filter((x) => x !== undefined && x !== null && `${x}`.trim() !== "")
+            .map((x) => `${x}`.trim())
         : typeof v === "string"
-        ? v.split(",").map((s) => s.trim()).filter((s) => s.length)
+        ? v
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s.length)
         : v != null
         ? [`${v}`.trim()]
         : [];
@@ -2719,7 +2723,9 @@ exports.PosDeleteKids = async (req, res) => {
       for (const s of arr) {
         out.push(s);
         if (/^[a-fA-F0-9]{24}$/.test(s)) {
-          try { out.push(new ObjectId(s)); } catch {}
+          try {
+            out.push(new ObjectId(s));
+          } catch {}
         }
       }
       return out;
@@ -2732,8 +2738,12 @@ exports.PosDeleteKids = async (req, res) => {
     }
 
     const statusSet = [
-      "TRIP-BOOKED", "COMPLETED", "WAITING-FOR-APPROVAL",
-      "APPROVED", "REJECTED", "PENDING",
+      "TRIP-BOOKED",
+      "COMPLETED",
+      "WAITING-FOR-APPROVAL",
+      "APPROVED",
+      "REJECTED",
+      "PENDING",
     ];
 
     // =========================================================
@@ -2839,7 +2849,7 @@ exports.PosDeleteKids = async (req, res) => {
       { $addFields: { schName: { $arrayElemAt: ["$school.schName", 0] } } },
 
       // =========================================================
-      // STEP 5: Get ALL payments for this trip + this parent
+      // STEP 5: Get ONLY APPROVED payments for this trip + this parent
       // =========================================================
       {
         $lookup: {
@@ -2864,8 +2874,8 @@ exports.PosDeleteKids = async (req, res) => {
                         { $in: ["$ParentID", "$$parentIdsInput"] },
                       ],
                     },
-                    // ✅ Only APPROVED or FAILED payments
-                    { $in: ["$PayStatus", ["APPROVED", "FAILED"]] },
+                    // ✅ Only APPROVED payments
+                    { $eq: ["$PayStatus", "APPROVED"] },
                   ],
                 },
               },
@@ -2895,7 +2905,7 @@ exports.PosDeleteKids = async (req, res) => {
       },
 
       // =========================================================
-      // STEP 6: Extract unique KidsIDs from APPROVED/FAILED payments
+      // STEP 6: Extract unique KidsIDs from APPROVED payments only
       // =========================================================
       {
         $addFields: {
@@ -2937,7 +2947,7 @@ exports.PosDeleteKids = async (req, res) => {
                         { $in: ["$ParentID", "$$parentIdsInput"] },
                       ],
                     },
-                    // Only kids in APPROVED/FAILED payment KidsIDs
+                    // Only kids in APPROVED payment KidsIDs
                     { $in: ["$KidsID", "$$qualifiedKidsIds"] },
                   ],
                 },
@@ -2984,7 +2994,7 @@ exports.PosDeleteKids = async (req, res) => {
                 $mergeObjects: [
                   "$$kid",
                   {
-                    // Attach the latest APPROVED or FAILED payment for this kid
+                    // Attach the latest APPROVED payment for this kid
                     payment: {
                       $arrayElemAt: [
                         {
@@ -3161,23 +3171,18 @@ exports.PosDeleteKids = async (req, res) => {
       { $sort: { actRequestDate: -1, actRequestTime: -1 } },
     ];
 
-    const trips = await db
-      .collection("tblactivityrequest")
-      .aggregate(pipeline)
-      .toArray();
+    const trips = await db.collection("tblactivityrequest").aggregate(pipeline).toArray();
 
     return res.status(200).json({
       status: "success",
       parentsInfo,
       trips,
     });
-
   } catch (err) {
     console.error("Error in gettripviewByParentsID:", err?.message || err);
     next(err);
   }
 };
-
  
 
 exports.IsDuplicateSchoolTripBooking = async (req, res, next) => {
