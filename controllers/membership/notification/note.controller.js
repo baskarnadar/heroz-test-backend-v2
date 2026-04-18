@@ -270,14 +270,16 @@ exports.memupdatenoteStatus = async (req, res, next) => {
     next(error);
   }
 };
-exports.memdeletenote = async (req, res, next) => {
+ exports.memdeletenote = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
     const collection = db.collection("tblnotification");
 
     const { NoteID, ParentsID } = req.body || {};
 
-    // ✅ validation
+    // ===============================
+    // ✅ VALIDATION
+    // ===============================
     if (!NoteID || String(NoteID).trim() === "") {
       return sendResponse(res, "NoteID is required.", true);
     }
@@ -286,6 +288,9 @@ exports.memdeletenote = async (req, res, next) => {
       return sendResponse(res, "ParentsID is required.", true);
     }
 
+    // ===============================
+    // ✅ FILTER (NO FavID USED)
+    // ===============================
     const filter = {
       NoteID: String(NoteID).trim(),
       ParentsID: String(ParentsID).trim(),
@@ -297,27 +302,33 @@ exports.memdeletenote = async (req, res, next) => {
     console.log("🚀 memdeletenote filter =");
     console.log(JSON.stringify(filter, null, 2));
 
-    // ✅ delete
+    // ===============================
+    // ✅ DELETE
+    // ===============================
     const deleteResult = await collection.deleteOne(filter);
 
     console.log("✅ memdeletenote delete result =");
     console.log(deleteResult);
 
     if (deleteResult.deletedCount === 0) {
-      return sendResponse(res, "No record found to delete.", true);
+      return sendResponse(res, "No notification found to delete.", true, [], 0);
     }
 
+    // ===============================
+    // ✅ SUCCESS RESPONSE
+    // ===============================
     return sendResponse(
       res,
       "Notification deleted successfully.",
-      null,
+      false,
       {
         deletedCount: deleteResult.deletedCount,
         NoteID: String(NoteID).trim(),
-      }
+      },
+      1
     );
   } catch (error) {
-    console.error("Error in memdeletenote:", error);
+    console.error("❌ Error in memdeletenote:", error);
     next(error);
   }
 };
