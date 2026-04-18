@@ -1,23 +1,15 @@
-// controllers/membership/note/note.route.js
 const express = require("express");
 const router = express.Router();
 
-const note = require("./note.controller");
-const { protectAPI } = require("../../middleware/auth");
+// ✅ Correct controller
+const favController = require("./fav.controller");
 
-router.post("/memaddnote",protectAPI, note.memaddnote);
-
-module.exports = router;
-// controllers/membership/favourite/favourite.route.js
-const express = require("express");
-const router = express.Router();
-
-const favourite = require("./fav.controller"); // same controller file
+// ✅ Middleware
 const { protectAPI } = require("../../middleware/auth");
 
 // ================= FAVOURITE =================
-router.post("/memaddfavourite", protectAPI, favourite.memaddfavourite);
-router.post("/memgetfavouritelist", protectAPI, favourite.memgetfavouritelist);
-router.post("/memdeletfavourite", protectAPI, favourite.memdeletfavourite);
+router.post("/memaddfavourite", protectAPI, favController.memaddfavourite);
+router.post("/memgetfavouritelist", protectAPI, favController.memgetfavouritelist);
+router.post("/memdeletfavourite", protectAPI, favController.memdeletfavourite);
 
 module.exports = router;

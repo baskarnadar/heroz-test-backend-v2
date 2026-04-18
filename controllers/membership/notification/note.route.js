@@ -8,8 +8,8 @@ const { protectAPI } = require("../../middleware/auth");
 router.post("/memaddnote", protectAPI, note.memaddnote);
 
 // ================= FAVOURITE (ADDED) =================
-router.post("/memaddfavourite", protectAPI, note.memaddfavourite);
-router.post("/memgetfavouritelist", protectAPI, note.memgetfavouritelist);
-router.post("/memdeletfavourite", protectAPI, note.memdeletfavourite);
-
+router.post("/memaddnote", protectAPI, note.memaddnote);
+router.post("/memgetnotelist", protectAPI, note.memgetnotelist);
+router.post("/memupdatenoteStatus", protectAPI, note.memupdatenoteStatus);
+router.post("/memdeletenote", protectAPI, note.memdeletenote);
 module.exports = router;

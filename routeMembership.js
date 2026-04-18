@@ -1,14 +1,17 @@
 // routeMembership.js
 const express = require('express')
 const router = express.Router()
+ 
 
 // Activity
 const activitylistRoute = require('./controllers/membership/activity/activity.route')
 
 // Profile
 const profileRoute = require('./controllers/membership/profile/profile.route')
+
 // review
 const reviewRoute = require('./controllers/membership/review/review.route')
+
 // Booking
 const bookingRoute = require('./controllers/membership/booking/booking.route')
 
@@ -23,7 +26,15 @@ const mempaymentRoute = require('./controllers/membership/mempayment/mempayment.
 
 // ✅ Anonymous Misc
 const anonMiscRoute = require('./controllers/membership/anonymous/misc/misc.route')
+
+// ✅ Login
 const memloginRoute = require('./controllers/membership/login/login.route')
+
+// ✅ Favourite
+const favRoute = require('./controllers/membership/fav/fav.route')
+
+// ✅ Notification
+const noteRoute = require('./controllers/membership/notification/note.route')
 
 
 // Mount routes
@@ -44,7 +55,13 @@ router.use('/membership/mempayment', mempaymentRoute)
 // Anonymous
 router.use('/membership/anonymous/misc', anonMiscRoute)
 
-// ✅ Mount mempayment route
+// ✅ Mount login route
 router.use('/membership/login', memloginRoute)
+
+// ✅ Mount favourite route
+router.use('/membership/fav', favRoute)
+
+// ✅ Mount notification route
+router.use('/membership/notification', noteRoute)
 
 module.exports = router
