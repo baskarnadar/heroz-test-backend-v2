@@ -4,27 +4,41 @@ const { connectToMongoDB } = require("../../database/mongodb");
 const crypto = require("crypto");
 const { generatePassWord,generateOtp } = require("../operation/operation");
 
- const createUser = async (userData, req) => {
+const createUser = async (userData, req) => {
   var pwdkey = "";
   try {
     const db = await connectToMongoDB();
 
-    // ✅ Use password from req.body if provided, else generate one
-    var passwordval = (userData.password && String(userData.password).trim() !== "")
-      ? userData.password
-      : generatePassWord();
-   console.log("passwordval");
-console.log(passwordval);
-    var usernameval = userData.username;
+    // ✅ Use password from userData if provided, else generate one
+    var passwordval =
+      userData.password && String(userData.password).trim() !== ""
+        ? String(userData.password).trim()
+        : generatePassWord();
+
+    console.log("passwordval");
+    console.log(passwordval);
+
+    var usernameval = String(userData.username || "").trim();
     console.log("username");
     console.log(usernameval);
+
+    if (!usernameval) {
+      throw new Error("username is required");
+    }
+
     var value = usernameval + passwordval;
     let md5Key = crypto.createHash("md5").update(value, "utf-8").digest();
+
     for (let i = 0; i < md5Key.length; i++) {
       pwdkey += md5Key[i];
     }
+
     console.log("pwdkey");
-console.log(pwdkey);
+    console.log(pwdkey);
+
+    // ✅ generate OTP once and save same OTP in DB + send same OTP in SMS
+    const generatedOtp = generateOtp();
+
     const newUser = {
       prtuserid: userData.prtuserid,
       username: usernameval,
@@ -36,17 +50,47 @@ console.log(pwdkey);
       ModifyBy: userData.ModifyBy || "system",
       ModifyDate: new Date(),
       IsDataStatus: 1,
-      userotp : generateOtp()
+      userotp: generatedOtp,
     };
 
     const result = await db.collection("tblprtusers").insertOne(newUser);
-    return result;
+
+    console.log("createUser insert result");
+    console.log(result);
+
+    // ✅ send OTP SMS only after successful insert
+    let smsResult = null;
+
+    if (result?.insertedId) {
+      const smsMessage = `Your OTP is: ${generatedOtp}`;
+
+      console.log("OTP SMS mobile");
+      console.log(usernameval);
+      console.log("OTP SMS message");
+      console.log(smsMessage);
+
+      smsResult = await herozsendsms(usernameval, "REGISTEROTP", "en", {
+        req,
+        message: smsMessage,
+        enableIpRateLimit: true,
+        enableMobileRateLimit: true,
+      });
+
+      console.log("OTP SMS result");
+      console.log(smsResult);
+    }
+
+    // ✅ return both db result and sms result
+    return {
+      insertResult: result,
+      otp: generatedOtp,
+      smsResult: smsResult,
+    };
   } catch (error) {
     console.error("Error in createUser:", error);
     throw error;
   }
 };
-
 const updatepassword = async (req, res, userdata) => {
   try {
     let pwdkey = "";

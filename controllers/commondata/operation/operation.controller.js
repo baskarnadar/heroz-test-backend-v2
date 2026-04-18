@@ -8,7 +8,8 @@ const {
 const crypto = require("crypto");
 const {
   herozsendsms, 
-} = require("../../../controllers/commondata/operation/smsservice");
+} = require("../../../controllers/service/smsservice");
+
 const fs = require("fs");      // if not already there
 const path = require("path");
 const PDFDocument = require("pdfkit");
@@ -61,6 +62,7 @@ function sendResponse(res, message, error, results = null, totalCount = null) {
       {
         projection: {
           username: 1,
+          prtuserid: 1,
         },
       }
     );
@@ -90,9 +92,26 @@ function sendResponse(res, message, error, results = null, totalCount = null) {
       }
     );
 
+    // ✅ send SMS AFTER password update success
+    let smsResult = null;
+
+    if (result.modifiedCount > 0) {
+      const smsMessage = `Your new password is: ${password}`;
+      // Arabic example:
+      // const smsMessage = `كلمة المرور الجديدة الخاصة بك هي: ${password}`;
+
+      smsResult = await herozsendsms(usernameval, "RESETPWD", "en", {
+        req,
+        message: smsMessage,
+        enableIpRateLimit: true,
+        enableMobileRateLimit: true,
+      });
+    }
+
     return sendResponse(res, "Password updated.", null, {
       ModifyDate: result.modifiedCount,
       newpassword: password,
+      smsResult: smsResult,
     });
   } catch (error) {
     return sendResponse(res, "Error in changepwd.", true, {
@@ -100,7 +119,7 @@ function sendResponse(res, message, error, results = null, totalCount = null) {
     });
   }
 };
- 
+
  exports.changepwd = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();

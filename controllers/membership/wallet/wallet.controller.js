@@ -84,7 +84,9 @@ exports.getMyWalletStar = async (req, res, next) => {
   }
 };
 
- exports.addMyWalletStar = async (req, res, next) => {
+ // controllers/membership/profile/profile.controller.js
+
+exports.addMyWalletStar = async (req, res, next) => {
   try {
     console.log("✅ addMyWalletStar req.body =", req.body)
 
@@ -124,15 +126,18 @@ exports.getMyWalletStar = async (req, res, next) => {
       return sendResponse(res, "ProductID is required.", true, [], 0)
     }
 
-    const StarValidPeriodFrom = req.body?.StarValidPeriodFrom
-      ? new Date(req.body.StarValidPeriodFrom)
-      : null
+    // ===============================
+    // ✅ FIXED: AUTO CALCULATE VALIDITY (365 DAYS)
+    // ===============================
+    const StarValidPeriodFrom = new Date()
 
-    const StarValidPeriodTo = req.body?.StarValidPeriodTo
-      ? new Date(req.body.StarValidPeriodTo)
-      : null
+    const StarValidPeriodTo = new Date()
+    StarValidPeriodTo.setDate(StarValidPeriodFrom.getDate() + 365)
 
-    const StarIsActive =1;
+    console.log("✅ StarValidPeriodFrom =", StarValidPeriodFrom)
+    console.log("✅ StarValidPeriodTo =", StarValidPeriodTo)
+
+    const StarIsActive = 1
     const ParentsID = String(req.body?.ParentsID ?? prtuserid).trim()
     const CreatedBy = String(req.body?.CreatedBy ?? prtuserid).trim()
     const ModifyBy = String(req.body?.ModifyBy ?? prtuserid).trim()
@@ -151,29 +156,39 @@ exports.getMyWalletStar = async (req, res, next) => {
 
       // ✅ NEW SAVED FIELDS
       PayInvoiceID,
-      PayPaymentID, 
+      PayPaymentID,
+
       TotalStar,
       TotalStarAmount,
+
+      // ✅ UPDATED VALIDITY
       StarValidPeriodFrom,
       StarValidPeriodTo,
+
       StarIsActive,
       ParentsID,
       CreatedBy,
       CreatedDate: now,
       ModifyBy,
       ModifyDate: now,
-      PayStatus: "APPROVED", 
-      PayParentsStatus  : "NEW"
 
+      PayStatus: "APPROVED",
+      PayParentsStatus: "NEW"
     }
 
     console.log("✅ starInsert =", starInsert)
 
     await starsCol.insertOne(starInsert)
 
-    return sendResponse(res, "tblMemStars added successfully.", null, starInsert, 1)
+    return sendResponse(
+      res,
+      "tblMemStars added successfully.",
+      null,
+      starInsert,
+      1
+    )
   } catch (error) {
-    console.error("Error in addMyWalletStarts:", error)
+    console.error("❌ Error in addMyWalletStars:", error)
     next(error)
   }
 }

@@ -1,8 +1,5 @@
 const axios = require("axios");
-const { connectToMongoDB } = require("../../../database/mongodb"); 
-const apiKey = "ow1DL6cEh0lLlJJJrj11uYN7aPf3yW3kV5bB7gz8";
-const secretKey = "TSMJhAqpPyYcUFKyojMdSG6jZbZ4wpouLFW3cpwM6wtA93lfzMRwXAoRj8AlIOKT9YP491GveH4bJiRYGVrDBSFB3gyrReQ0JQa1";
-const sender = "HEROZ";
+const { connectToMongoDB } = require("../../database/mongodb"); 
 
 
 function getAuthHeaderV1() {
