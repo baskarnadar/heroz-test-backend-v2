@@ -108,30 +108,40 @@ exports.memgetfavouritelist = async (req, res, next) => {
 // ===========================
 // DELETE FAVOURITE
 // ===========================
-exports.memdeletfavourite = async (req, res, next) => {
+ exports.memdeletfavourite = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
     const collection = db.collection("tblFavourite");
 
     const { FavID, ParentsID, ActivityID } = req.body || {};
 
-    if (!FavID || String(FavID).trim() === "") {
-      return sendResponse(res, "FavID is required.", true);
-    }
-
+    // ✅ ParentsID required
     if (!ParentsID || String(ParentsID).trim() === "") {
       return sendResponse(res, "ParentsID is required.", true);
     }
 
-    if (!ActivityID || String(ActivityID).trim() === "") {
-      return sendResponse(res, "ActivityID is required.", true);
-    }
-
-    const filter = {
-      FavID: String(FavID).trim(),
+    // ===============================
+    // ✅ Build dynamic filter
+    // ===============================
+    let filter = {
       ParentsID: String(ParentsID).trim(),
-      ActivityID: String(ActivityID).trim(),
     };
+
+    // 👉 If FavID provided → use it
+    if (FavID && String(FavID).trim() !== "") {
+      filter.FavID = String(FavID).trim();
+    } else {
+      // 👉 Else ActivityID must be provided
+      if (!ActivityID || String(ActivityID).trim() === "") {
+        return sendResponse(
+          res,
+          "ActivityID is required when FavID is not provided.",
+          true
+        );
+      }
+
+      filter.ActivityID = String(ActivityID).trim();
+    }
 
     console.log("🚀 memdeletfavourite filter =", filter);
 
@@ -143,7 +153,8 @@ exports.memdeletfavourite = async (req, res, next) => {
 
     return sendResponse(res, "Favourite deleted.", null, {
       deletedCount: deleteResult.deletedCount,
-      FavID: String(FavID).trim(),
+      FavID: filter.FavID || null,
+      ActivityID: filter.ActivityID || null,
     });
   } catch (error) {
     console.error("Error in memdeletfavourite:", error);
