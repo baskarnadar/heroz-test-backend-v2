@@ -472,7 +472,57 @@ exports.schQR = async (req, res, next) => {
   }
 };
 
+exports.getTripDeepLink = async (req, res, next) => {
+  try {
+    const { tripDeepLinkUrl, mode = "json" } = req.body || {};
 
+    if (!tripDeepLinkUrl || !String(tripDeepLinkUrl).trim()) {
+      return res.status(400).json({
+        ok: false,
+        message: "tripDeepLinkUrl is required."
+      });
+    }
+
+    const qrText = String(tripDeepLinkUrl).trim(); // Full URL encoded in QR
+
+    const opts = {
+      errorCorrectionLevel: "M",
+      width: 512,
+      margin: 1
+    };
+
+    if (String(mode).toLowerCase() === "image") {
+      // Return raw PNG bytes
+      const pngBuffer = await QRCode.toBuffer(qrText, {
+        ...opts,
+        type: "png"
+      });
+
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(200).send(pngBuffer);
+    }
+
+    // Default: return Data URL in JSON
+    const dataUrl = await QRCode.toDataURL(qrText, {
+      ...opts,
+      type: "image/png"
+    });
+
+    return res.status(200).json({
+      ok: true,
+      tripDeepLinkUrl: qrText,
+      qrDeepLinkDataUrl: dataUrl
+    });
+  } catch (err) {
+    console.error("getTripDeepLink error:", err);
+    return res.status(500).json({
+      ok: false,
+      message: "Internal server error.",
+      error: err.message
+    });
+  }
+};
  function sendResponse(res, message, error = null, results = null, totalCount = null) {
   res.status(error ? 400 : 200).json({
     statusCode: error ? 400 : 200,

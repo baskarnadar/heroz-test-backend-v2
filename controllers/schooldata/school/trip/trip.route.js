@@ -9,4 +9,5 @@ router.post("/schQR", protectAPI,activity.schQR);
 router.post("/schupdateSendToVendor", protectAPI,activity.schupdateSendToVendor);
 router.post("/getVdrTripLockDateList", protectAPI,activity.getVdrTripLockDateList);
 router.post("/updateSchProposal", protectAPI,activity.updateSchProposal);
+router.post("/getTripDeepLink", protectAPI,activity.getTripDeepLink);
 module.exports = router; 
