@@ -3,7 +3,9 @@
 const { connectToMongoDB } = require("../../database/mongodb");
 const crypto = require("crypto");
 const { generatePassWord,generateOtp } = require("../operation/operation");
-
+ const {
+  herozsendsms, 
+} = require("../service/smsservice");
 const createUser = async (userData, req) => {
   var pwdkey = "";
   try {
