@@ -150,12 +150,12 @@ function sendResponse(res, message, error, results, totalCount) {
     next(error);
   }
 };
-exports.memgetnotelist = async (req, res, next) => {
+ exports.memgetnotelist = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
     const collection = db.collection("tblnotification");
 
-    const { ParentsID, NoteID } = req.body || {}; // ✅ noteTo removed
+    const { ParentsID, NoteID } = req.body || {};
 
     // ✅ basic validation
     if (!ParentsID || String(ParentsID).trim() === "") {
@@ -163,7 +163,7 @@ exports.memgetnotelist = async (req, res, next) => {
     }
 
     const filter = {
-      noteFrom: String(ParentsID).trim(), // ✅ only filter by ParentsID
+      noteFrom: String(ParentsID).trim(),
     };
 
     // ✅ optional filter by NoteID
@@ -178,8 +178,63 @@ exports.memgetnotelist = async (req, res, next) => {
     console.log(JSON.stringify(filter, null, 2));
 
     const result = await collection
-      .find(filter)
-      .sort({ CreatedDate: -1 })
+      .aggregate([
+        {
+          $match: filter,
+        },
+
+        // ✅ link with TblLokNoteKeyWord using noteKeyWord
+        {
+          $lookup: {
+            from: "TblLokNoteKeyWord",
+            localField: "noteKeyWord",
+            foreignField: "NoteKeyWord",
+            as: "noteKeywordInfo",
+          },
+        },
+        {
+          $unwind: {
+            path: "$noteKeywordInfo",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        // ✅ link with tblactivityinfo using ActivityID
+        {
+          $lookup: {
+            from: "tblactivityinfo",
+            localField: "ActivityID",
+            foreignField: "ActivityID",
+            as: "activityInfo",
+          },
+        },
+        {
+          $unwind: {
+            path: "$activityInfo",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        // ✅ link with tblMemShipBookingInfo using BookingID
+        {
+          $lookup: {
+            from: "tblMemShipBookingInfo",
+            localField: "BookingID",
+            foreignField: "BookingID",
+            as: "bookingInfo",
+          },
+        },
+        {
+          $unwind: {
+            path: "$bookingInfo",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        {
+          $sort: { CreatedDate: -1 },
+        },
+      ])
       .toArray();
 
     console.log("✅ memgetnotelist result count =", result.length);
@@ -188,7 +243,62 @@ exports.memgetnotelist = async (req, res, next) => {
 
     const responseData = (result || []).map((item) => {
       const obj = { ...item };
+
       delete obj.SchoolID; // ✅ exclude SchoolID from response
+
+      const bookingId = obj.BookingID ? String(obj.BookingID).trim() : "";
+      const actName =
+        obj.activityInfo && obj.activityInfo.actName
+          ? String(obj.activityInfo.actName).trim()
+          : "";
+      const bookingDate =
+        obj.bookingInfo && obj.bookingInfo.BookingActivityDate
+          ? String(obj.bookingInfo.BookingActivityDate).trim()
+          : "";
+      const bookingTime =
+        obj.bookingInfo && obj.bookingInfo.BookingActivityTime
+          ? String(obj.bookingInfo.BookingActivityTime).trim()
+          : "";
+
+      const noteArMessage =
+        obj.noteKeywordInfo && obj.noteKeywordInfo.NoteArMessage
+          ? String(obj.noteKeywordInfo.NoteArMessage)
+          : "";
+
+      const noteEnMessage =
+        obj.noteKeywordInfo && obj.noteKeywordInfo.NoteEnMessage
+          ? String(obj.noteKeywordInfo.NoteEnMessage)
+          : "";
+
+      const replaceMessagePlaceholders = (message) => {
+        if (!message || String(message).trim() === "") return "";
+
+        return String(message)
+          .replace(/\[BOOKINGID\]/g, bookingId)
+          .replace(/\[ACTNAME\]/g, actName)
+          .replace(/\[DATE\]/g, bookingDate)
+          .replace(/\[TIME\]/g, bookingTime);
+      };
+
+      const finalArMessage = replaceMessagePlaceholders(noteArMessage);
+      const finalEnMessage = replaceMessagePlaceholders(noteEnMessage);
+
+      // ✅ final json output
+      obj.notemsg = finalArMessage;
+      obj.endnotemsg = finalEnMessage;
+
+      // ✅ optional: keep fetched values also in output for debugging/use
+      obj.NoteArMessage = noteArMessage;
+      obj.NoteEnMessage = noteEnMessage;
+      obj.actName = actName;
+      obj.BookingActivityDate = bookingDate;
+      obj.BookingActivityTime = bookingTime;
+
+      // ✅ remove joined raw objects if you do not want nested data
+      delete obj.noteKeywordInfo;
+      delete obj.activityInfo;
+      delete obj.bookingInfo;
+
       return obj;
     });
 
