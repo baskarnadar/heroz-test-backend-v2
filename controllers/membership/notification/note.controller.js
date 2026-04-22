@@ -406,3 +406,61 @@ exports.memupdatenoteStatus = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.memdeleteallnote = async (req, res, next) => {
+  try {
+    const db = await connectToMongoDB();
+    const collection = db.collection("tblnotification");
+
+    const { ParentsID } = req.body || {};
+
+    // ===============================
+    // ✅ VALIDATION
+    // ===============================
+    if (!ParentsID || String(ParentsID).trim() === "") {
+      return sendResponse(res, "ParentsID is required.", true);
+    }
+
+    // ===============================
+    // ✅ FILTER (DELETE ALL BY ParentsID)
+    // ===============================
+    const filter = {
+      ParentsID: String(ParentsID).trim(),
+    };
+
+    console.log("🚀 memdeletenote payload =");
+    console.log(JSON.stringify(req.body, null, 2));
+
+    console.log("🚀 memdeletenote filter =");
+    console.log(JSON.stringify(filter, null, 2));
+
+    // ===============================
+    // ✅ DELETE ALL
+    // ===============================
+    const deleteResult = await collection.deleteMany(filter);
+
+    console.log("✅ memdeletenote delete result =");
+    console.log(deleteResult);
+
+    if (deleteResult.deletedCount === 0) {
+      return sendResponse(res, "No notifications found to delete.", true, [], 0);
+    }
+
+    // ===============================
+    // ✅ SUCCESS RESPONSE
+    // ===============================
+    return sendResponse(
+      res,
+      "All notifications deleted successfully.",
+      false,
+      {
+        deletedCount: deleteResult.deletedCount,
+        ParentsID: String(ParentsID).trim(),
+      },
+      deleteResult.deletedCount
+    );
+  } catch (error) {
+    console.error("❌ Error in memdeletenote:", error);
+    next(error);
+  }
+};
