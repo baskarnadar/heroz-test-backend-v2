@@ -464,3 +464,75 @@ exports.memdeleteallnote = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.memupdatestatus = async (req, res, next) => {
+  try {
+    const db = await connectToMongoDB();
+    const collection = db.collection("tblnotification");
+
+    const { NoteID, ParentsID } = req.body || {};
+
+    // ===============================
+    // ✅ VALIDATION
+    // ===============================
+    if (!NoteID || String(NoteID).trim() === "") {
+      return sendResponse(res, "NoteID is required.", true);
+    }
+
+    if (!ParentsID || String(ParentsID).trim() === "") {
+      return sendResponse(res, "ParentsID is required.", true);
+    }
+
+    // ===============================
+    // ✅ FILTER
+    // ===============================
+    const filter = {
+      NoteID: String(NoteID).trim(),
+      ParentsID: String(ParentsID).trim(),
+    };
+
+    console.log("🚀 memupdatestatus payload =");
+    console.log(JSON.stringify(req.body, null, 2));
+
+    console.log("🚀 memupdatestatus filter =");
+    console.log(JSON.stringify(filter, null, 2));
+
+    // ===============================
+    // ✅ UPDATE STATUS TO READ
+    // ===============================
+    const updateResult = await collection.updateOne(
+      filter,
+      {
+        $set: {
+          noteStatus: "READ",
+          ModifyDate: new Date(), // optional but recommended
+        },
+      }
+    );
+
+    console.log("✅ memupdatestatus update result =");
+    console.log(updateResult);
+
+    if (updateResult.matchedCount === 0) {
+      return sendResponse(res, "No notification found to update.", true, [], 0);
+    }
+
+    // ===============================
+    // ✅ SUCCESS RESPONSE
+    // ===============================
+    return sendResponse(
+      res,
+      "Notification marked as READ successfully.",
+      false,
+      {
+        matchedCount: updateResult.matchedCount,
+        modifiedCount: updateResult.modifiedCount,
+        NoteID: String(NoteID).trim(),
+      },
+      1
+    );
+  } catch (error) {
+    console.error("❌ Error in memupdatestatus:", error);
+    next(error);
+  }
+};
