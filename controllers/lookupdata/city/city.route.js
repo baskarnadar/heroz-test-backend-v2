@@ -8,5 +8,6 @@ router.post("/updateCity", protectAPI,City.updateCity);
 router.post("/createCity",protectAPI, City.createCity); 
 router.post("/delCity", protectAPI,City.delCity);
 router.post("/getCity",protectAPI, City.getCity);
+router.post("/getcitylistonly" ,City.getcitylistonly);
 module.exports = router;
 

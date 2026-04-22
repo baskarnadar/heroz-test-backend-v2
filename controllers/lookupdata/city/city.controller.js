@@ -47,6 +47,37 @@ exports.getcitylist = async (req, res, next) => {
   }
 };
 
+exports.getcitylistonly = async (req, res, next) => {
+  try {
+    const db = await connectToMongoDB();
+    const collection = db.collection("tbllokcity");
+
+    const City = await collection.aggregate([
+      {
+        $project: {
+          CityID: 1,
+          EnCityName: 1,
+          ArCityName: 1,
+          IsDataStatus: 1,
+          CreatedDate: 1,
+          CreatedBy: 1,
+          ModifyBy: 1,
+          ModifyBy: 1,
+        }
+      },
+      { $sort: { CreatedDate: -1 } }  // ✅ Sort by newest
+    ]).toArray();
+
+    const totalCount = City.length;
+
+    sendResponse(res, "City found.", null, City, totalCount);
+  } catch (error) {
+    console.error("Error in getAllCityList:", error);
+    next(error);
+  }
+};
+
+
 exports.getcityalllist = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
