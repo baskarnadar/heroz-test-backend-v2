@@ -179,11 +179,8 @@ function sendResponse(res, message, error, results, totalCount) {
 
     const result = await collection
       .aggregate([
-        {
-          $match: filter,
-        },
+        { $match: filter },
 
-        // ✅ link with TblLokNoteKeyWord using noteKeyWord
         {
           $lookup: {
             from: "TblLokNoteKeyWord",
@@ -199,7 +196,6 @@ function sendResponse(res, message, error, results, totalCount) {
           },
         },
 
-        // ✅ link with tblactivityinfo using ActivityID
         {
           $lookup: {
             from: "tblactivityinfo",
@@ -215,7 +211,6 @@ function sendResponse(res, message, error, results, totalCount) {
           },
         },
 
-        // ✅ link with tblMemShipBookingInfo using BookingID
         {
           $lookup: {
             from: "tblMemShipBookingInfo",
@@ -231,47 +226,23 @@ function sendResponse(res, message, error, results, totalCount) {
           },
         },
 
-        {
-          $sort: { CreatedDate: -1 },
-        },
+        { $sort: { CreatedDate: -1 } },
       ])
       .toArray();
 
     console.log("✅ memgetnotelist result count =", result.length);
-    console.log("✅ memgetnotelist result =");
-    console.log(JSON.stringify(result, null, 2));
 
-    const responseData = (result || []).map((item) => {
-      const obj = { ...item };
+    const responseData = (result || []).map((obj) => {
+      const bookingId = obj.BookingID || "";
+      const actName = obj.activityInfo?.actName || "";
+      const bookingDate = obj.bookingInfo?.BookingActivityDate || "";
+      const bookingTime = obj.bookingInfo?.BookingActivityTime || "";
 
-      delete obj.SchoolID; // ✅ exclude SchoolID from response
-
-      const bookingId = obj.BookingID ? String(obj.BookingID).trim() : "";
-      const actName =
-        obj.activityInfo && obj.activityInfo.actName
-          ? String(obj.activityInfo.actName).trim()
-          : "";
-      const bookingDate =
-        obj.bookingInfo && obj.bookingInfo.BookingActivityDate
-          ? String(obj.bookingInfo.BookingActivityDate).trim()
-          : "";
-      const bookingTime =
-        obj.bookingInfo && obj.bookingInfo.BookingActivityTime
-          ? String(obj.bookingInfo.BookingActivityTime).trim()
-          : "";
-
-      const noteArMessage =
-        obj.noteKeywordInfo && obj.noteKeywordInfo.NoteArMessage
-          ? String(obj.noteKeywordInfo.NoteArMessage)
-          : "";
-
-      const noteEnMessage =
-        obj.noteKeywordInfo && obj.noteKeywordInfo.NoteEnMessage
-          ? String(obj.noteKeywordInfo.NoteEnMessage)
-          : "";
+      const noteArMessage = obj.noteKeywordInfo?.NoteArMessage || "";
+      const noteEnMessage = obj.noteKeywordInfo?.NoteEnMessage || "";
 
       const replaceMessagePlaceholders = (message) => {
-        if (!message || String(message).trim() === "") return "";
+        if (!message) return "";
 
         return String(message)
           .replace(/\[BOOKINGID\]/g, bookingId)
@@ -280,33 +251,18 @@ function sendResponse(res, message, error, results, totalCount) {
           .replace(/\[TIME\]/g, bookingTime);
       };
 
-      const finalArMessage = replaceMessagePlaceholders(noteArMessage);
-      const finalEnMessage = replaceMessagePlaceholders(noteEnMessage);
-
-      // ✅ only final output fields you requested
-      obj.ar_note_msg = finalArMessage;
-      obj.en_note_msg = finalEnMessage;
-
-      // ✅ remove joined raw objects
-      delete obj.noteKeywordInfo;
-      delete obj.activityInfo;
-      delete obj.bookingInfo;
-
-      // ✅ remove old extra message/debug fields if present
-      delete obj.notemsg;
-      delete obj.endnotemsg;
-      delete obj.NoteArMessage;
-      delete obj.NoteEnMessage;
-      delete obj.actName;
-      delete obj.BookingActivityDate;
-      delete obj.BookingActivityTime;
-
-      return obj;
+      return {
+        NoteID: obj.NoteID,
+        ar_note_msg: replaceMessagePlaceholders(noteArMessage),
+        en_note_msg: replaceMessagePlaceholders(noteEnMessage),
+      };
     });
 
     return sendResponse(
       res,
-      result.length > 0 ? "Notification notes found." : "No notification notes found.",
+      result.length > 0
+        ? "Notification notes found."
+        : "No notification notes found.",
       null,
       responseData,
       responseData.length
