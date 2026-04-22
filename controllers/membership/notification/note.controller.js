@@ -283,21 +283,23 @@ function sendResponse(res, message, error, results, totalCount) {
       const finalArMessage = replaceMessagePlaceholders(noteArMessage);
       const finalEnMessage = replaceMessagePlaceholders(noteEnMessage);
 
-      // ✅ final json output
-      obj.notemsg = finalArMessage;
-      obj.endnotemsg = finalEnMessage;
+      // ✅ only final output fields you requested
+      obj.ar_note_msg = finalArMessage;
+      obj.en_note_msg = finalEnMessage;
 
-      // ✅ optional: keep fetched values also in output for debugging/use
-      obj.NoteArMessage = noteArMessage;
-      obj.NoteEnMessage = noteEnMessage;
-      obj.actName = actName;
-      obj.BookingActivityDate = bookingDate;
-      obj.BookingActivityTime = bookingTime;
-
-      // ✅ remove joined raw objects if you do not want nested data
+      // ✅ remove joined raw objects
       delete obj.noteKeywordInfo;
       delete obj.activityInfo;
       delete obj.bookingInfo;
+
+      // ✅ remove old extra message/debug fields if present
+      delete obj.notemsg;
+      delete obj.endnotemsg;
+      delete obj.NoteArMessage;
+      delete obj.NoteEnMessage;
+      delete obj.actName;
+      delete obj.BookingActivityDate;
+      delete obj.BookingActivityTime;
 
       return obj;
     });
