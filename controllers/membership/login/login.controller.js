@@ -183,7 +183,7 @@ function sendResponse(
   }
 };
 
-exports.getmemdata = async (req, res, next) => {
+ exports.getmemdata = async (req, res, next) => {
   try {
     console.log("==============================================");
     console.log("[getmemdata] HIT:", new Date().toISOString());
@@ -211,7 +211,7 @@ exports.getmemdata = async (req, res, next) => {
           RegUserFullName: 1,
           RegUserEmailAddress: 1,
           RegUserMobileNo: 1,
-          RegUserCityID:1,
+          RegUserCityID: 1, // ✅ already correct
           RegUserImageName: 1,
         },
       }
@@ -231,6 +231,7 @@ exports.getmemdata = async (req, res, next) => {
       RegUserFullName: memData.RegUserFullName ?? null,
       RegUserEmailAddress: memData.RegUserEmailAddress ?? null,
       RegUserMobileNo: memData.RegUserMobileNo ?? null,
+      RegUserCityID: memData.RegUserCityID ?? null, // ✅ ADDED HERE
       RegUserImageName: RegUserImageName || null,
       RegUserImageNameUrl:
         PosUserImageUrl && RegUserImageName
