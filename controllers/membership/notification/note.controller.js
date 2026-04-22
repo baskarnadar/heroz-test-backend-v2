@@ -15,7 +15,7 @@ function sendResponse(res, message, error, results, totalCount) {
 
 
 
-exports.memaddnote = async (req, res, next) => {
+ exports.memaddnote = async (req, res, next) => {
   try {
     const db = await connectToMongoDB();
     const collection = db.collection("tblnotification");
@@ -27,6 +27,7 @@ exports.memaddnote = async (req, res, next) => {
       ActivityID,
       SchoolID,
       ParentsID, // ✅ NEW FIELD ADDED
+      BookingID, // ✅ NEW FIELD ADDED
       noteType,
       noteFrom,
       noteTo,
@@ -70,6 +71,11 @@ exports.memaddnote = async (req, res, next) => {
       return sendResponse(res, "ParentsID is required.", true);
     }
 
+    // ✅ NEW VALIDATION FOR BookingID
+    if (!BookingID || String(BookingID).trim() === "") {
+      return sendResponse(res, "BookingID is required.", true);
+    }
+
     const now = new Date();
 
     const newNote = {
@@ -88,6 +94,9 @@ exports.memaddnote = async (req, res, next) => {
       // ✅ NEW FIELD STORED
       ParentsID: String(ParentsID).trim(),
 
+      // ✅ NEW FIELD STORED
+      BookingID: String(BookingID).trim(),
+
       noteType: String(noteType).trim(),
       noteFrom: String(noteFrom).trim(),
       noteTo: String(noteTo).trim(),
@@ -103,13 +112,13 @@ exports.memaddnote = async (req, res, next) => {
       CreatedBy:
         CreatedBy && String(CreatedBy).trim() !== ""
           ? String(CreatedBy).trim()
-          : String(ParentsID).trim(), // ✅ use ParentsID fallback
+          : String(ParentsID).trim(),
 
       ModifyDate: now,
       ModifyBy:
         ModifyBy && String(ModifyBy).trim() !== ""
           ? String(ModifyBy).trim()
-          : String(ParentsID).trim(), // ✅ use ParentsID fallback
+          : String(ParentsID).trim(),
     };
 
     console.log("🚀 memaddnote payload =");
