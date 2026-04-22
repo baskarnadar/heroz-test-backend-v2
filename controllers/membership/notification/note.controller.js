@@ -255,6 +255,7 @@ function sendResponse(res, message, error, results, totalCount) {
         NoteID: obj.NoteID,
          ParentsID: obj.ParentsID,
           CreatedDate: obj.CreatedDate,
+          noteKeyWord:obj.noteKeyWord,
         ar_note_msg: replaceMessagePlaceholders(noteArMessage),
         en_note_msg: replaceMessagePlaceholders(noteEnMessage),
       };
