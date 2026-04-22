@@ -211,6 +211,7 @@ exports.getmemdata = async (req, res, next) => {
           RegUserFullName: 1,
           RegUserEmailAddress: 1,
           RegUserMobileNo: 1,
+          RegUserCityID:1,
           RegUserImageName: 1,
         },
       }
@@ -279,6 +280,7 @@ exports.getmemdata = async (req, res, next) => {
     // ✅ Validate fields to update
     // =========================================================
     const RegUserFullName = String(req.body?.RegUserFullName ?? "").trim();
+    const RegUserCityID = String(req.body?.RegUserCityID ?? "").trim();
 
     let RegUserImageName = null;
 
@@ -288,11 +290,11 @@ exports.getmemdata = async (req, res, next) => {
         .replace(/^users\//, "");
     }
 
-    if (!RegUserFullName && !RegUserImageName) {
+    if (!RegUserFullName && !RegUserImageName && !RegUserCityID) {
       return sendResponse(
         res,
         400,
-        "At least RegUserFullName or RegUserImageName is required.",
+        "At least RegUserFullName or RegUserImageName or RegUserCityID is required.",
         true
       );
     }
@@ -313,7 +315,7 @@ exports.getmemdata = async (req, res, next) => {
     // =========================================================
     const updateFields = {
       ModifyBy: prtuserid,
-      UpdatedDate: new Date(), // ✅ CHANGED HERE
+      UpdatedDate: new Date(),
     };
 
     if (RegUserFullName) {
@@ -322,6 +324,10 @@ exports.getmemdata = async (req, res, next) => {
 
     if (RegUserImageName) {
       updateFields.RegUserImageName = RegUserImageName;
+    }
+
+    if (RegUserCityID) {
+      updateFields.RegUserCityID = RegUserCityID;
     }
 
     // =========================================================
@@ -343,6 +349,8 @@ exports.getmemdata = async (req, res, next) => {
       prtuserid,
       RegUserFullName:
         updateFields.RegUserFullName ?? existingUser.RegUserFullName,
+      RegUserCityID:
+        updateFields.RegUserCityID ?? existingUser.RegUserCityID ?? "",
       RegUserImageName: finalImageName,
       RegUserImageNameUrl:
         PosUserImageUrl && finalImageName
