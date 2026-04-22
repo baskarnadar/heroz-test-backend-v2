@@ -155,20 +155,15 @@ exports.memgetnotelist = async (req, res, next) => {
     const db = await connectToMongoDB();
     const collection = db.collection("tblnotification");
 
-    const { ParentsID, noteTo, NoteID } = req.body || {};
+    const { ParentsID, NoteID } = req.body || {}; // ✅ noteTo removed
 
     // ✅ basic validation
     if (!ParentsID || String(ParentsID).trim() === "") {
       return sendResponse(res, "ParentsID is required.", true);
     }
 
-    if (!noteTo || String(noteTo).trim() === "") {
-      return sendResponse(res, "noteTo is required.", true);
-    }
-
     const filter = {
-      noteFrom: String(ParentsID).trim(),
-      noteTo: String(noteTo).trim(),
+      noteFrom: String(ParentsID).trim(), // ✅ only filter by ParentsID
     };
 
     // ✅ optional filter by NoteID
