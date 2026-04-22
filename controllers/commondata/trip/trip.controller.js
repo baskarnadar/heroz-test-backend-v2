@@ -2542,24 +2542,30 @@ exports.closePayDueDate = async (req, res, next) => {
       req.body?.KidsName ?? req.body?.kidsName ?? req.body?.name ?? existingKid.KidsName,
       150
     );
+
     const KidsClassName = normalizeText(
       req.body?.KidsClassName ?? req.body?.ClassName ?? req.body?.className ?? existingKid.KidsClassName,
       100
     );
+
     const KidsSchoolName = normalizeText(
       req.body?.KidsSchoolName ?? req.body?.SchoolName ?? req.body?.schoolName ?? existingKid.KidsSchoolName,
       150
     );
+
     const KidsGender = normalizeGender(
       req.body?.KidsGender ?? req.body?.gender ?? existingKid.KidsGender
     );
+
     const KidsSchoolNo = normalizeText(
       req.body?.KidsSchoolNo ?? req.body?.SchoolNo ?? existingKid.KidsSchoolNo ?? "",
       50
     );
+
     const KidsDateOfBirth = normalizeDOB(
       req.body?.KidsDateOfBirth ?? req.body?.DateOfBirth ?? req.body?.dob ?? existingKid.KidsDateOfBirth
     );
+
     const KidsAdditionalNote = normalizeText(
       req.body?.KidsAdditionalNote ?? req.body?.AdditionalNote ?? req.body?.notes ?? existingKid.KidsAdditionalNote ?? "",
       200
@@ -2567,12 +2573,9 @@ exports.closePayDueDate = async (req, res, next) => {
 
     // =========================================================
     // ✅ Resolve Image ONLY from req.body
-    // ✅ No file upload logic
-    // ✅ No file upload validation
-    // ✅ Store KidsImageName without "users/"
     // =========================================================
     const S3_FOLDER = "users";
-    const S3_BASE_URL = process.env.S3_BASE_URL; // e.g. https://your-bucket.s3.amazonaws.com
+    const S3_BASE_URL = process.env.S3_BASE_URL;
 
     let KidsImageName = existingKid.KidsImageName ?? "logo.png";
     let KidsImageUrl = existingKid.KidsImageUrl ?? null;
@@ -2599,29 +2602,30 @@ exports.closePayDueDate = async (req, res, next) => {
     }
 
     // =========================================================
-    // ✅ Required field validation
+    // ✅ UPDATED REQUIRED FIELD VALIDATION
+    // ❌ REMOVED KidsClassName & KidsSchoolName
     // =========================================================
-    if (!KidsName || !KidsClassName || !KidsSchoolName || !KidsGender) {
+    if (!KidsName || !KidsGender) {
       return sendResponse(
         res,
-        "KidsName, KidsClassName, KidsSchoolName, KidsGender are required.",
+        "KidsName and KidsGender are required.",
         true
       );
     }
 
     // =========================================================
-    // ✅ Build update payload — matches exact DB schema
+    // ✅ Build update payload
     // =========================================================
     const updateFields = {
       KidsName,
-      KidsClassName,
-      KidsSchoolName,
+      KidsClassName: KidsClassName || null,   // optional
+      KidsSchoolName: KidsSchoolName || null, // optional
       KidsGender,
       KidsSchoolNo: KidsSchoolNo || null,
       KidsDateOfBirth,
       KidsAdditionalNote: KidsAdditionalNote || null,
-      KidsImageName, // stored as filename only
-      KidsImageUrl,  // full S3 URL
+      KidsImageName,
+      KidsImageUrl,
       ParentsID,
       ModifyDate: new Date(),
       ModifyBy: ParentsID,
@@ -2644,6 +2648,7 @@ exports.closePayDueDate = async (req, res, next) => {
       modifiedCount: updateResult.modifiedCount,
       updatedFields: updateFields,
     });
+
   } catch (error) {
     console.error("[PosUpdateKidsOnly] ERROR:", error);
     return sendResponse(res, "Error in PosUpdateKidsOnly.", true, {
