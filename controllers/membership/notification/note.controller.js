@@ -536,3 +536,57 @@ exports.memupdatestatus = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.memtotnotes = async (req, res, next) => {
+  try {
+    const db = await connectToMongoDB();
+    const collection = db.collection("tblnotification");
+
+    const { ParentsID } = req.body || {};
+
+    // ===============================
+    // ✅ VALIDATION
+    // ===============================
+    if (!ParentsID || String(ParentsID).trim() === "") {
+      return sendResponse(res, "ParentsID is required.", true);
+    }
+
+    // ===============================
+    // ✅ FILTER (ONLY NEW NOTES)
+    // ===============================
+    const filter = {
+      ParentsID: String(ParentsID).trim(),
+      noteStatus: "NEW",
+    };
+
+    console.log("🚀 memtotnotes payload =");
+    console.log(JSON.stringify(req.body, null, 2));
+
+    console.log("🚀 memtotnotes filter =");
+    console.log(JSON.stringify(filter, null, 2));
+
+    // ===============================
+    // ✅ COUNT DOCUMENTS
+    // ===============================
+    const totalNewNotes = await collection.countDocuments(filter);
+
+    console.log("✅ memtotnotes count =", totalNewNotes);
+
+    // ===============================
+    // ✅ RESPONSE
+    // ===============================
+    return sendResponse(
+      res,
+      "Total NEW notifications count fetched successfully.",
+      false,
+      {
+        totalNewNotes: totalNewNotes,
+        ParentsID: String(ParentsID).trim(),
+      },
+      totalNewNotes
+    );
+  } catch (error) {
+    console.error("❌ Error in memtotnotes:", error);
+    next(error);
+  }
+};
