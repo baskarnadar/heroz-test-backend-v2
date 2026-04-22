@@ -50,6 +50,9 @@ function sendResponse(
     // ✅ NEW: get image from request
     const RegUserImageNameInput = req.body.RegUserImageName;
 
+    // ✅ NEW: get city id
+    const RegUserCityIDInput = req.body.RegUserCityID;
+
     const NowISO = new Date();
 
     if (!RegUserFullName || String(RegUserFullName).trim() === "") {
@@ -99,14 +102,22 @@ function sendResponse(
 
     // =========================================================
     // ✅ IMAGE RESOLVE (FROM BODY ONLY)
-    // remove "users/" if sent
     // =========================================================
     let RegUserImageName = "logo.png";
 
     if (RegUserImageNameInput && String(RegUserImageNameInput).trim() !== "") {
       RegUserImageName = String(RegUserImageNameInput)
         .trim()
-        .replace(/^users\//, ""); // ✅ remove users/
+        .replace(/^users\//, "");
+    }
+
+    // =========================================================
+    // ✅ CITY RESOLVE
+    // =========================================================
+    let RegUserCityID = null;
+
+    if (RegUserCityIDInput && String(RegUserCityIDInput).trim() !== "") {
+      RegUserCityID = String(RegUserCityIDInput).trim();
     }
 
     const schoolDoc = {
@@ -119,12 +130,15 @@ function sendResponse(
           ? String(RegUserEmailAddress).trim()
           : null,
       RegUserMobileNo: String(username).trim(),
+
+      // ✅ NEW FIELD ADDED
+      RegUserCityID: RegUserCityID,
+
       CreatedAt: NowISO,
       UpdatedAt: NowISO,
       CreatedBy: prtuseridVal,
       ModifyBy: prtuseridVal,
 
-      // ✅ UPDATED HERE
       RegUserImageName: RegUserImageName,
     };
 
@@ -152,7 +166,10 @@ function sendResponse(
         prtuserid: prtuseridVal,
         username: String(username).trim(),
         usertype: String(usertype).trim(),
-        RegUserImageName: RegUserImageName // ✅ optional return
+        RegUserImageName: RegUserImageName,
+
+        // ✅ OPTIONAL RETURN
+        RegUserCityID: RegUserCityID,
       }
     );
   } catch (error) {
