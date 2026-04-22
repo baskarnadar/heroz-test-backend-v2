@@ -13,4 +13,5 @@ router.post("/memgetnotelist", protectAPI, note.memgetnotelist);
 router.post("/memupdatenoteStatus", protectAPI, note.memupdatenoteStatus);
 router.post("/memdeletenote", protectAPI, note.memdeletenote);
 router.post("/memdeleteallnote", protectAPI, note.memdeleteallnote);
+router.post("/memtotnotes", protectAPI, note.memtotnotes);
 module.exports = router;
