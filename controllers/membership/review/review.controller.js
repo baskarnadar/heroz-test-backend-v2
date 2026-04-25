@@ -276,9 +276,11 @@ function sendResponse(res, message, error, results, totalCount) {
     }
 
     const db = await connectToMongoDB();
-    const reviewCol = db.collection("tblMemShipBookingInfo");
 
-    const existingReview = await reviewCol.findOne({
+    const bookingCol = db.collection("tblMemShipBookingInfo");
+    const reviewCol = db.collection("tblMemReview");
+
+    const existingBooking = await bookingCol.findOne({
       $expr: {
         $and: [
           {
@@ -297,28 +299,41 @@ function sendResponse(res, message, error, results, totalCount) {
       },
     });
 
-    if (existingReview) {
-      return sendResponse(
-        res,
-        "Review already added.",
-        false,
-        {
-          isAllowAddReview: "YES",
-          isReviewAdded: "YES",
-        },
-        1
-      );
-    }
+    const existingReview = await reviewCol.findOne({
+      $expr: {
+        $and: [
+          {
+            $eq: [
+              { $trim: { input: { $toString: "$ActivityID" }, chars: " ," } },
+              { $trim: { input: { $toString: ActivityID }, chars: " ," } },
+            ],
+          },
+          {
+            $eq: [
+              { $trim: { input: { $toString: "$ParentsID" }, chars: " ," } },
+              { $trim: { input: { $toString: ParentsID }, chars: " ," } },
+            ],
+          },
+        ],
+      },
+    });
+
+    const isAllowAddReview = existingBooking ? "YES" : "NO";
+    const isReviewAdded = existingReview ? "YES" : "NO";
 
     return sendResponse(
       res,
-      "Review not added.",
+      existingReview
+        ? "Review already added."
+        : existingBooking
+        ? "Review can be added."
+        : "Review not allowed.",
       false,
       {
-        isAllowAddReview: "NO",
-        isReviewAdded: "NO",
+        isAllowAddReview,
+        isReviewAdded,
       },
-      0
+      existingBooking || existingReview ? 1 : 0
     );
   } catch (error) {
     console.error("Error in isallowtoaddreview:", error);
