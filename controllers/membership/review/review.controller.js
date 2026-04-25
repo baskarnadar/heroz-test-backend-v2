@@ -262,5 +262,67 @@ function sendResponse(res, message, error, results, totalCount) {
 };
  
  
+exports.isallowtoaddreview = async (req, res, next) => {
+  try {
+    const ActivityID = String(req.body?.ActivityID ?? "").trim();
+    const ParentsID = String(req.body?.ParentsID ?? "").trim();
 
+    if (!ActivityID) {
+      return sendResponse(res, "ActivityID is required.", true, null, 0);
+    }
+
+    if (!ParentsID) {
+      return sendResponse(res, "ParentsID is required.", true, null, 0);
+    }
+
+    const db = await connectToMongoDB();
+    const reviewCol = db.collection("tblMemReview");
+
+    const existingReview = await reviewCol.findOne({
+      $expr: {
+        $and: [
+          {
+            $eq: [
+              { $trim: { input: { $toString: "$ActivityID" }, chars: " ," } },
+              { $trim: { input: { $toString: ActivityID }, chars: " ," } },
+            ],
+          },
+          {
+            $eq: [
+              { $trim: { input: { $toString: "$ParentsID" }, chars: " ," } },
+              { $trim: { input: { $toString: ParentsID }, chars: " ," } },
+            ],
+          },
+        ],
+      },
+    });
+
+    if (existingReview) {
+      return sendResponse(
+        res,
+        "Review already added.",
+        false,
+        {
+          isAllowAddReview: "YES",
+          isReviewAdded: "YES",
+        },
+        1
+      );
+    }
+
+    return sendResponse(
+      res,
+      "Review not added.",
+      false,
+      {
+        isAllowAddReview: "NO",
+        isReviewAdded: "NO",
+      },
+      0
+    );
+  } catch (error) {
+    console.error("Error in isallowtoaddreview:", error);
+    next(error);
+  }
+};
  

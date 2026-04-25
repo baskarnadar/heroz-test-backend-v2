@@ -7,5 +7,5 @@ const review = require("./review.controller");
 
 router.post("/getreviewlist", review.getreviewlist);
 router.post("/addreview", protectAPI,  review.addreview); 
- 
+ router.post("/isallowtoaddreview", review.isallowtoaddreview);
 module.exports = router;
