@@ -262,7 +262,7 @@ function sendResponse(res, message, error, results, totalCount) {
 };
  
  
-exports.isallowtoaddreview = async (req, res, next) => {
+ exports.isallowtoaddreview = async (req, res, next) => {
   try {
     const ActivityID = String(req.body?.ActivityID ?? "").trim();
     const ParentsID = String(req.body?.ParentsID ?? "").trim();
@@ -276,20 +276,20 @@ exports.isallowtoaddreview = async (req, res, next) => {
     }
 
     const db = await connectToMongoDB();
-    const reviewCol = db.collection("tblMemReview");
+    const reviewCol = db.collection("tblMemShipBookingInfo");
 
     const existingReview = await reviewCol.findOne({
       $expr: {
         $and: [
           {
             $eq: [
-              { $trim: { input: { $toString: "$ActivityID" }, chars: " ," } },
+              { $trim: { input: { $toString: "$BookingActivityID" }, chars: " ," } },
               { $trim: { input: { $toString: ActivityID }, chars: " ," } },
             ],
           },
           {
             $eq: [
-              { $trim: { input: { $toString: "$ParentsID" }, chars: " ," } },
+              { $trim: { input: { $toString: "$BookingParentsID" }, chars: " ," } },
               { $trim: { input: { $toString: ParentsID }, chars: " ," } },
             ],
           },
@@ -325,4 +325,3 @@ exports.isallowtoaddreview = async (req, res, next) => {
     next(error);
   }
 };
- 
